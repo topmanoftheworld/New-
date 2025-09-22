@@ -115,7 +115,7 @@
             <input type="date" id="doc-date" class="mt-1 w-full p-2 border border-gray-300 rounded-md" />
           </div>
           <div id="due-date-wrap">
-            <label for="due-date" class="block text-sm font-medium text-gray-700">Due Date</label>
+            <label id="due-date-label" for="due-date" class="block text-sm font-medium text-gray-700">Due Date</label>
             <input type="date" id="due-date" class="mt-1 w-full p-2 border border-gray-300 rounded-md" />
           </div>
         </div>
@@ -139,7 +139,7 @@
           <button type="button" class="rte-btn" data-cmd="insertOrderedList" data-target="letterhead-editor">1. List</button>
           <button type="button" class="rte-btn" data-cmd="formatBlock" data-value="p" data-target="letterhead-editor">Paragraph</button>
           <button type="button" class="rte-btn" data-cmd="formatBlock" data-value="h3" data-target="letterhead-editor">H3</button>
-          <button type="button" class="rte-btn" data-cmd="removeFormat" data-target="letterhead-editor">Clear</button>
+          <button type="button" class="rte-btn" data-cmd="clear" data-action="clear" data-target="letterhead-editor">Clear</button>
         </div>
         <div id="letterhead-editor" class="rte-editor" contenteditable="true" aria-label="Letterhead content editor"></div>
       </div>
@@ -160,6 +160,23 @@
         </div>
       </div>
 
+      <!-- Payment Advice (Invoice mode only) -->
+      <div id="advice-controls" class="mb-6 p-4 bg-gray-50 rounded-lg border hidden">
+        <h3 class="text-lg font-semibold mb-3 text-gray-800">Payment Advice</h3>
+        <p class="text-xs text-gray-500 mb-2">Shown at the very end of the invoice. Hidden if empty.</p>
+        <div class="rte-toolbar" id="advice-toolbar">
+          <button type="button" class="rte-btn" data-cmd="bold" data-target="advice-editor"><strong>B</strong></button>
+          <button type="button" class="rte-btn" data-cmd="italic" data-target="advice-editor"><em>I</em></button>
+          <button type="button" class="rte-btn" data-cmd="underline" data-target="advice-editor"><u>U</u></button>
+          <button type="button" class="rte-btn" data-cmd="insertUnorderedList" data-target="advice-editor">• List</button>
+          <button type="button" class="rte-btn" data-cmd="insertOrderedList" data-target="advice-editor">1. List</button>
+          <button type="button" class="rte-btn" data-cmd="formatBlock" data-value="p" data-target="advice-editor">Paragraph</button>
+          <button type="button" class="rte-btn" data-cmd="formatBlock" data-value="h3" data-target="advice-editor">H3</button>
+          <button type="button" class="rte-btn" data-cmd="clear" data-action="clear" data-target="advice-editor">Clear</button>
+        </div>
+        <div id="advice-editor" class="rte-editor" contenteditable="true" aria-label="Payment advice editor"></div>
+      </div>
+
       <!-- Client Acceptance (controls) -->
       <div id="acceptance-controls" class="mb-6 p-4 bg-gray-50 rounded-lg border">
         <h3 class="text-lg font-semibold mb-3 text-gray-800">Client Acceptance</h3>
@@ -167,10 +184,6 @@
           <div>
             <label class="block text-sm font-medium text-gray-700">Name</label>
             <input type="text" id="accept-name" class="mt-1 w-full p-2 border border-gray-300 rounded-md" placeholder="Client full name" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Date</label>
-            <input type="date" id="accept-date" class="mt-1 w-full p-2 border border-gray-300 rounded-md" />
           </div>
           <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700">Signature Image (URL or Base64)</label>
@@ -201,7 +214,7 @@
           <button type="button" class="rte-btn" data-cmd="insertOrderedList" data-target="notes-editor">1. List</button>
           <button type="button" class="rte-btn" data-cmd="formatBlock" data-value="p" data-target="notes-editor">Paragraph</button>
           <button type="button" class="rte-btn" data-cmd="formatBlock" data-value="h3" data-target="notes-editor">H3</button>
-          <button type="button" class="rte-btn" data-cmd="removeFormat" data-target="notes-editor">Clear</button>
+          <button type="button" class="rte-btn" data-cmd="clear" data-action="clear" data-target="notes-editor">Clear</button>
         </div>
         <div id="notes-editor" class="rte-editor" contenteditable="true" aria-label="Notes/Terms editor"></div>
         <p class="mt-1 text-xs text-gray-500">Shown on the Notes/Terms page.</p>
@@ -243,7 +256,7 @@
             <h2 id="preview-doc-title" class="text-4xl font-bold uppercase text-gray-800">Quote</h2>
             <p id="preview-doc-date-title" class="text-gray-500 hidden"></p>
             <div id="preview-letter-to" class="mt-2 text-right text-sm hidden">
-              <h4 class="font-bold text-gray-500 mb-1">TO</n4>
+              <h4 class="font-bold text-gray-500 mb-1">TO</h4>
               <p id="lh-client-name" class="font-bold"></p>
               <p id="lh-client-address" class="whitespace-pre-line"></p>
               <p id="lh-client-email"></p>
@@ -264,7 +277,7 @@
             </div>
             <div id="preview-dates-right" class="text-right">
               <p><span class="font-bold text-gray-500">Date:</span> <span id="preview-doc-date"></span></p>
-              <p><span class="font-bold text-gray-500">Due Date:</span> <span id="preview-due-date"></span></p>
+              <p><span id="preview-due-date-label" class="font-bold text-gray-500">Due Date:</span> <span id="preview-due-date"></span></p>
             </div>
           </div>
 
@@ -315,11 +328,6 @@
                 <div class="signature-line"></div>
                 <p class="mt-1" id="preview-accept-name"></p>
               </div>
-              <div class="col-span-6 md:col-span-3">
-                <label class="text-gray-600">Date</label>
-                <div class="signature-line"></div>
-                <p class="mt-1" id="preview-accept-date"></p>
-              </div>
               <div class="col-span-12 md:col-span-12">
                 <label class="text-gray-600">Signature</label>
                 <div class="h-20 border-b border-gray-800 flex items-center">
@@ -340,13 +348,12 @@
           <div class="page-footer"><span class="page-number"></span> / <span class="page-count"></span></div>
         </section>
 
-        <!-- Page 2: Notes / Terms -->
+        <!-- Page 2: Notes (only when editor has content) -->
         <section id="notes-page" class="document-page p-12 aspect-[1/1.414]">
           <div class="page-header">
             <div id="page-header-left-notes"></div>
             <div id="page-header-right-notes"></div>
           </div>
-          <h4 class="font-bold text-gray-500 mb-2 text-sm">Notes / Terms</h4>
           <div id="preview-notes" class="text-sm text-gray-700"></div>
           <div class="page-footer"><span class="page-number"></span> / <span class="page-count"></span></div>
         </section>
@@ -439,10 +446,7 @@
         d.setDate(d.getDate() + 14); // sensible default due date
         AppState.document.dueDate = toLocalYMD(d);
       }
-      if (!AppState.acceptance || !AppState.acceptance.date) {
-        AppState.acceptance = AppState.acceptance || {};
-        AppState.acceptance.date = todayLocalYMD();
-      }
+      // No default acceptance date; date field removed
       if (AppState.lineItems.length === 0) addLineItem(false);
       addEventListeners();
       buildThemesGrid();
@@ -462,6 +466,18 @@
         const editor = targetId ? document.getElementById(targetId) : null;
         if (editor) {
           editor.focus();
+        }
+        // Custom clear action: wipe content and update AppState
+        const isClear = btn.getAttribute('data-action') === 'clear' || cmd === 'clear';
+        if (isClear && editor) {
+          editor.innerHTML = '';
+          if (targetId === 'notes-editor') {
+            AppState.notes = '';
+          } else if (targetId === 'letterhead-editor') {
+            AppState.letterhead.content = '';
+          }
+          render();
+          return;
         }
         try {
           document.execCommand(cmd, false, value || null);
@@ -555,8 +571,9 @@
         document: { number: '', date: '', dueDate: '' },
         lineItems: [],
         totals: { discount: null, gstRate: 15 },
-        notes: `5-Year Workmanship Guarantee\nTomar Contracting guarantees that all workmanship, including the cleaning, repairs, and painting processes as described in this quote, will be carried out to a high professional standard. This guarantee is valid for a period of five (5) years from the date of project completion. It covers any defects arising directly from our workmanship, such as peeling, flaking, or blistering of the paint system due to improper application.\n\nDisclaimer: Our liability is limited to our direct workmanship. This guarantee does not cover pre-existing structural issues, substrate failure, or future damage caused by extreme weather events, physical impact, foot traffic, or other external factors beyond our control.\n\nPayment Terms:\nA 50% deposit may be required upon acceptance of this quote to schedule the work and order materials. The remaining balance is due upon project completion.`,
+        notes: '',
         acceptance: { name: '', date: '', signature: '' },
+        paymentAdvice: { content: '<p><strong>Account details</strong> — Tomar Contracting Limited<br/>38-9024-0318399-00</p>' },
         theme: { background: '' },
         letterhead: { content: '' },
         global: { savedDocuments: [], counters: { quote: 1001, invoice: 1001 } }
@@ -603,16 +620,39 @@
         AppState.totals.gstRate = isNaN(v) ? 0 : v;
         render();
       });
-      // Notes RTE input
+      // Notes RTE input (live pagination without full render)
       const notesEditor = document.getElementById('notes-editor');
-      if (notesEditor) notesEditor.addEventListener('input', e => { AppState.notes = e.target.innerHTML; render(); });
+      if (notesEditor) notesEditor.addEventListener('input', () => {
+        requestAnimationFrame(() => {
+          paginateNotesContent();
+          const pagesAll = document.querySelectorAll('#document-preview .document-page');
+          // Reapply backgrounds and numbering/headers for any newly created pages
+          const bg2 = AppState.theme && AppState.theme.background ? AppState.theme.background : '';
+          pagesAll.forEach(p => { p.style.backgroundImage = bg2 ? `url("${bg2}")` : 'none'; });
+          updatePageNumbers(pagesAll);
+          updatePageHeaders();
+        });
+      });
       document.getElementById('branch-form').addEventListener('submit', handleBranchFormSubmit);
+      // Payment Advice editor input (live paginate in invoice mode)
+      const advEd = document.getElementById('advice-editor');
+      if (advEd) advEd.addEventListener('input', () => {
+        requestAnimationFrame(() => {
+          paginatePaymentAdvice();
+          const pagesAll = document.querySelectorAll('#document-preview .document-page');
+          const bg2 = AppState.theme && AppState.theme.background ? AppState.theme.background : '';
+          pagesAll.forEach(p => { p.style.backgroundImage = bg2 ? `url("${bg2}")` : 'none'; });
+          updatePageNumbers(pagesAll);
+          updatePageHeaders();
+        });
+      });
       // Letterhead RTE input
       const lhContent = document.getElementById('letterhead-editor');
       if (lhContent) lhContent.addEventListener('input', e => { AppState.letterhead.content = e.target.innerHTML; render(); });
       // RTE toolbars
       bindRteToolbar('notes-toolbar');
       bindRteToolbar('letterhead-toolbar');
+      bindRteToolbar('advice-toolbar');
       // Notes templates (quote mode only)
       const notesTpl = document.getElementById('notes-template');
       if (notesTpl) notesTpl.addEventListener('change', e => {
@@ -625,14 +665,20 @@
         render();
       });
       const accName = document.getElementById('accept-name');
-      const accDate = document.getElementById('accept-date');
       const accSig = document.getElementById('accept-signature');
       if (accName) accName.addEventListener('input', e => { AppState.acceptance.name = e.target.value; render(); });
-      if (accDate) accDate.addEventListener('change', e => { AppState.acceptance.date = e.target.value; render(); });
       if (accSig) accSig.addEventListener('input', e => { AppState.acceptance.signature = e.target.value; render(); });
     }
 
     // RENDERING
+    function applyBackgroundsAndNumbering() {
+      const pagesAll = document.querySelectorAll('#document-preview .document-page');
+      const bg2 = AppState.theme && AppState.theme.background ? AppState.theme.background : '';
+      pagesAll.forEach(p => { p.style.backgroundImage = bg2 ? `url("${bg2}")` : 'none'; });
+      updatePageNumbers(pagesAll);
+      updatePageHeaders();
+    }
+
     function render() {
       // controls
       document.getElementById('client-name').value = AppState.clientInfo.name;
@@ -656,7 +702,6 @@
       }
       if (document.getElementById('letterhead-editor')) document.getElementById('letterhead-editor').innerHTML = (AppState.letterhead?.content || '');
       if (document.getElementById('accept-name')) document.getElementById('accept-name').value = AppState.acceptance?.name || '';
-      if (document.getElementById('accept-date')) document.getElementById('accept-date').value = AppState.acceptance?.date || '';
       if (document.getElementById('accept-signature')) document.getElementById('accept-signature').value = AppState.acceptance?.signature || '';
 
       renderBranchDropdown();
@@ -664,12 +709,14 @@
       renderSavedDocuments();
 
       const isLetter = AppState.mode === 'letterhead';
+      const isInvoice = AppState.mode === 'invoice';
       // Toggle controls blocks visibility for letterhead mode
       const itemsBlock = document.getElementById('items-block');
       const totalsBlock = document.getElementById('totals-settings');
       const acceptBlock = document.getElementById('acceptance-controls');
       const lhControls = document.getElementById('letterhead-content-controls');
       const notesControls = document.getElementById('notes-controls');
+      const adviceControls = document.getElementById('advice-controls');
       const dueDateWrap = document.getElementById('due-date-wrap');
       if (itemsBlock) itemsBlock.style.display = isLetter ? 'none' : '';
       if (totalsBlock) totalsBlock.style.display = isLetter ? 'none' : '';
@@ -677,6 +724,7 @@
       if (lhControls) lhControls.classList.toggle('hidden', !isLetter);
       const hideNotesControls = AppState.mode !== 'quote';
       if (notesControls) notesControls.style.display = hideNotesControls ? 'none' : '';
+      if (adviceControls) adviceControls.classList.toggle('hidden', !isInvoice);
       if (dueDateWrap) dueDateWrap.style.display = isLetter ? 'none' : '';
 
       const toLabel = AppState.mode === 'quote' ? 'Quote To' : (AppState.mode === 'invoice' ? 'Bill To' : '');
@@ -717,6 +765,12 @@
 
       document.getElementById('preview-doc-date').innerText = formatDate(AppState.document.date);
       document.getElementById('preview-due-date').innerText = formatDate(AppState.document.dueDate);
+      // Dynamic label for Due/Validity Date
+      const dueLabel = (AppState.mode === 'quote') ? 'Validity Date:' : 'Due Date:';
+      const dueLabelEl = document.getElementById('due-date-label');
+      if (dueLabelEl) dueLabelEl.innerText = (AppState.mode === 'quote') ? 'Validity Date' : 'Due Date';
+      const prevDueLabelEl = document.getElementById('preview-due-date-label');
+      if (prevDueLabelEl) prevDueLabelEl.innerText = dueLabel;
 
       // Letterhead preview toggles
       const previewTo = document.getElementById('preview-to');
@@ -728,7 +782,13 @@
       const lhPreview = document.getElementById('preview-letterhead-content');
       if (previewTo) previewTo.style.display = isLetter ? 'none' : '';
       const notesPage = document.getElementById('notes-page');
-      if (notesPage) notesPage.style.display = AppState.mode === 'quote' ? '' : 'none';
+      const hasNotes = (() => {
+        const nv = AppState.notes || '';
+        const text = nv.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+        return text.length > 0;
+      })();
+      // Do not show the dedicated notes page; notes will flow after acceptance instead
+      if (notesPage) notesPage.style.display = 'none';
       if (itemsTable) itemsTable.style.display = isLetter ? 'none' : '';
       if (totalsPreview) totalsPreview.style.display = isLetter ? 'none' : '';
       if (acceptPreview) acceptPreview.style.display = (AppState.mode === 'quote') ? '' : 'none';
@@ -764,51 +824,37 @@
         document.querySelectorAll('#document-preview [data-generated="items-page"]').forEach(el => el.remove());
       }
 
-      // Ensure signature block (acceptance) stays immediately after the pricing table,
-      // even when the items table spans multiple pages.
-      (function moveAcceptanceBelowItems() {
-        const blockEl = (AppState.mode === 'invoice') ? document.getElementById('payment-advice-preview') : document.getElementById('acceptance-preview');
-        if (!blockEl) return;
-        // Choose the last items page if any were generated; otherwise page 1
-        const generated = document.querySelectorAll('#document-preview [data-generated="items-page"]');
-        const targetSection = generated.length > 0
-          ? generated[generated.length - 1]
-          : document.querySelector('#document-preview .document-page');
-        if (!targetSection) return;
-        const footer = targetSection.querySelector('.page-footer');
-        if (footer && blockEl.parentElement !== targetSection) {
-          targetSection.insertBefore(blockEl, footer);
-        } else if (footer && blockEl.nextElementSibling !== footer) {
-          // If already in the target, ensure it's placed before footer
-          targetSection.insertBefore(blockEl, footer);
-        } else if (!footer && blockEl.parentElement !== targetSection) {
-          targetSection.appendChild(blockEl);
-        }
-      })();
+      // Ensure acceptance is positioned with proper spacing relative to items/pages
+      ensureAcceptancePositioning();
 
+      // Update Notes HTML before pagination
       const notesPreview = document.getElementById('preview-notes');
       if (notesPreview) {
         const nv = AppState.notes || '';
         notesPreview.innerHTML = /</.test(nv) ? nv : nv.replace(/\n/g, '<br>');
       }
+
+      // Paginate letterhead, notes, and payment advice (invoice) content
+      paginateLetterheadContent();
+      paginateNotesContent();
+      paginatePaymentAdvice();
+      // Quote-only safety pagination to prevent footer overlap
+      cleanupQuoteContinuationPages();
+      paginateQuoteOverflow();
       // Acceptance preview
       const acceptName = AppState.acceptance?.name || '';
-      const acceptDate = AppState.acceptance?.date || '';
       const acceptSig = AppState.acceptance?.signature || '';
       const sigImg = document.getElementById('preview-accept-signature');
       document.getElementById('preview-accept-name').innerText = acceptName;
-      document.getElementById('preview-accept-date').innerText = formatDate(acceptDate);
       if (sigImg) {
         if (acceptSig) { sigImg.src = acceptSig; sigImg.style.display = 'block'; }
         else { sigImg.style.display = 'none'; }
       }
-      // After pagination, ensure backgrounds, headers, and page numbers are correct
-      const pagesAll = document.querySelectorAll('#document-preview .document-page');
-      const bg2 = AppState.theme && AppState.theme.background ? AppState.theme.background : '';
-      pagesAll.forEach(p => { p.style.backgroundImage = bg2 ? `url("${bg2}")` : 'none'; });
-      
-      updatePageNumbers(pagesAll);
+      // Refresh numbering/headers and backgrounds across all visible pages
+      const allPages = document.querySelectorAll('#document-preview .document-page');
+      updatePageNumbers(allPages);
       updatePageHeaders();
+      applyBackgroundsAndNumbering();
       updateModeButtons();
     }
 
@@ -839,25 +885,40 @@
     // Pagination: split items across multiple pages
     const ROWS_PER_PAGE_FIRST = 12;
     const ROWS_PER_PAGE_CONT = 22;
+    const MAX_PAGES = 10; // hard cap for total visible pages
+
+    function getVisiblePages() {
+      const nodes = Array.from(document.querySelectorAll('#document-preview .document-page'));
+      return nodes.filter(p => window.getComputedStyle(p).display !== 'none');
+    }
 
     function renderItemsAndPaginate() {
       // Page 1 rows
       const tbody = document.getElementById('preview-line-items');
       if (!tbody) return;
-      const allRows = AppState.lineItems.map(item => buildItemRowHTML(item)).join('');
       const rows = AppState.lineItems.map(item => buildItemRowHTML(item));
       tbody.innerHTML = rows.slice(0, ROWS_PER_PAGE_FIRST).join('');
 
-      // Remove previously generated item pages
-      document.querySelectorAll('#document-preview [data-generated="items-page"]').forEach(el => el.remove());
+      // Remove previously generated item pages, but never remove a page containing the signature block
+      (function safeRemoveOldItemPages() {
+        const acceptEl = document.getElementById('acceptance-preview');
+        document.querySelectorAll('#document-preview [data-generated="items-page"]').forEach(el => {
+          if (acceptEl && el.contains(acceptEl)) return; // preserve signature page
+          el.remove();
+        });
+      })();
+      // Remove any previously generated acceptance-only pages (will be re-evaluated later)
+      // (No special acceptance pages to clean)
 
       const notesPage = document.getElementById('notes-page');
       const container = document.getElementById('document-preview');
-      if (!container || !notesPage) return;
+      if (!container) return;
 
       let start = ROWS_PER_PAGE_FIRST;
       let pageIndex = 1;
-      while (start < rows.length) {
+      // Respect the global page cap: base page is 1, so allow up to MAX_PAGES - 1 continuation pages here
+      const maxContinuationPages = Math.max(0, MAX_PAGES - 1);
+      while (start < rows.length && pageIndex <= maxContinuationPages) {
         const chunk = rows.slice(start, start + ROWS_PER_PAGE_CONT).join('');
         const section = document.createElement('section');
         section.className = 'document-page p-12 aspect-[1/1.414]';
@@ -876,10 +937,84 @@
             <tbody>${chunk}</tbody>
           </table>
           <div class="page-footer"><span class="page-number"></span> / <span class="page-count"></span></div>`;
-        container.insertBefore(section, notesPage);
+        if (notesPage && notesPage.parentElement === container) {
+          container.insertBefore(section, notesPage);
+        } else {
+          container.appendChild(section);
+        }
         start += ROWS_PER_PAGE_CONT;
         pageIndex++;
       }
+      // Apply backgrounds and numbering after adding items continuation pages
+      const pagesAll = document.querySelectorAll('#document-preview .document-page');
+      const bg2 = AppState.theme && AppState.theme.background ? AppState.theme.background : '';
+      pagesAll.forEach(p => { p.style.backgroundImage = bg2 ? `url("${bg2}")` : 'none'; });
+      updatePageNumbers(pagesAll);
+      updatePageHeaders();
+    }
+
+    // Ensure acceptance block sits 96px below the last item row, after the final items page.
+    function ensureAcceptancePositioning() {
+      if (AppState.mode !== 'quote') return;
+      const container = document.getElementById('document-preview');
+      const accept = document.getElementById('acceptance-preview');
+      if (!container || !accept) return;
+      // Identify the target section: the last generated items page or first page
+      const generated = document.querySelectorAll('#document-preview [data-generated="items-page"]');
+      const targetSection = generated.length > 0
+        ? generated[generated.length - 1]
+        : document.querySelector('#document-preview .document-page');
+      if (!targetSection) return;
+
+      // Insert acceptance into targetSection just before its footer
+      const footer = targetSection.querySelector('.page-footer');
+      if (footer) {
+        if (accept.parentElement !== targetSection || accept.nextElementSibling !== footer) {
+          targetSection.insertBefore(accept, footer);
+        }
+      } else if (accept.parentElement !== targetSection) {
+        targetSection.appendChild(accept);
+      }
+
+      // Enforce 1 inch spacing from prior content
+      accept.style.marginTop = '96px';
+
+      // Double rAF to ensure layout is fully stable before measuring
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const footerRect = footer ? footer.getBoundingClientRect() : null;
+          const acceptRect = accept.getBoundingClientRect();
+          let needsNewPage = false;
+          if (footerRect) {
+            const currentYPosition = acceptRect.top;
+            const availableHeight = footerRect.top - currentYPosition;
+            const blockHeight = acceptRect.height + 96; // include 1-inch margin
+            needsNewPage = availableHeight < blockHeight;
+          }
+          if (!needsNewPage) return;
+          const visibleCount = getVisiblePages().length;
+          if (visibleCount >= MAX_PAGES) { accept.style.marginTop = '24px'; return; }
+          const acceptPage = document.createElement('section');
+          acceptPage.className = 'document-page p-12 aspect-[1/1.414]';
+          acceptPage.setAttribute('data-generated', 'signature-page');
+          acceptPage.innerHTML = `
+            <div class="page-header"><div></div><div></div></div>
+            <div class="page-footer"><span class="page-number"></span> / <span class="page-count"></span></div>`;
+          if (targetSection && targetSection.parentNode) {
+            if (targetSection.nextSibling) targetSection.parentNode.insertBefore(acceptPage, targetSection.nextSibling);
+            else targetSection.parentNode.appendChild(acceptPage);
+          } else { container.appendChild(acceptPage); }
+          const acceptFooter = acceptPage.querySelector('.page-footer');
+          accept.style.marginTop = '96px';
+          if (acceptFooter) acceptPage.insertBefore(accept, acceptFooter); else acceptPage.appendChild(accept);
+          // Apply backgrounds and numbering after adding a signature page
+          const pagesAll = document.querySelectorAll('#document-preview .document-page');
+          const bg2 = AppState.theme && AppState.theme.background ? AppState.theme.background : '';
+          pagesAll.forEach(p => { p.style.backgroundImage = bg2 ? `url("${bg2}")` : 'none'; });
+          updatePageNumbers(pagesAll);
+          updatePageHeaders();
+        });
+      });
     }
 
     function buildItemRowHTML(item) {
@@ -927,6 +1062,308 @@
     function selectTheme(src) {
       AppState.theme = { background: src };
       render();
+    }
+
+    // Paginate letterhead content into additional pages if it overflows.
+    function paginateLetterheadContent() {
+      if (AppState.mode !== 'letterhead') return;
+      const container = document.getElementById('document-preview');
+      if (!container) return;
+      // Remove previously generated letterhead pages
+      container.querySelectorAll('[data-generated="letterhead-page"]').forEach(el => el.remove());
+
+      const firstSection = container.querySelector('.document-page');
+      const firstContent = document.getElementById('preview-letterhead-content');
+      if (!firstSection || !firstContent) return;
+      const footer = firstSection.querySelector('.page-footer');
+      if (!footer) return;
+
+      const nodes = Array.from(firstContent.childNodes);
+      if (nodes.length === 0) return;
+      firstContent.innerHTML = '';
+
+      let currentSection = firstSection;
+      let currentContainer = firstContent;
+
+      function fitsCurrentSection() {
+        const footerRect = currentSection.querySelector('.page-footer').getBoundingClientRect();
+        const contentRect = currentContainer.getBoundingClientRect();
+        return contentRect.bottom <= footerRect.top - 4; // small buffer
+      }
+
+      nodes.forEach(node => {
+        currentContainer.appendChild(node);
+        if (!fitsCurrentSection()) {
+          // Move node to a new letterhead page
+          currentContainer.removeChild(node);
+          // Enforce page cap
+          if (getVisiblePages().length >= MAX_PAGES) {
+            return; // stop adding more pages/content
+          }
+          const sec = document.createElement('section');
+          sec.className = 'document-page p-12 aspect-[1/1.414]';
+          sec.setAttribute('data-generated', 'letterhead-page');
+          sec.innerHTML = `
+            <div class="page-header"><div></div><div></div></div>
+            <div class="text-sm" data-role="letterhead-content"></div>
+            <div class="page-footer"><span class="page-number"></span> / <span class="page-count"></span></div>`;
+          container.appendChild(sec);
+          currentSection = sec;
+          currentContainer = sec.querySelector('[data-role="letterhead-content"]');
+          currentContainer.appendChild(node);
+        }
+      });
+
+      // Apply backgrounds and numbering after adding letterhead continuation pages
+      const pagesAll = document.querySelectorAll('#document-preview .document-page');
+      const bg2 = AppState.theme && AppState.theme.background ? AppState.theme.background : '';
+      pagesAll.forEach(p => { p.style.backgroundImage = bg2 ? `url("${bg2}")` : 'none'; });
+      updatePageNumbers(pagesAll);
+      updatePageHeaders();
+
+      // If first page ended up with no letterhead content but we created continuation pages, hide it
+      const hasFirstContent = firstContent.textContent.trim().length > 0 || firstContent.children.length > 0;
+      const generatedPages = container.querySelectorAll('[data-generated="letterhead-page"]').length;
+      if (!hasFirstContent && generatedPages > 0) {
+        firstSection.style.display = 'none';
+      } else {
+        firstSection.style.display = '';
+      }
+    }
+
+    // Paginate Notes content across pages using cloned content; editor remains intact and editable.
+    function paginateNotesContent() {
+      if (AppState.mode !== 'quote') return;
+
+      const container = document.getElementById('document-preview');
+      const accept = document.getElementById('acceptance-preview');
+      const notesEditor = document.getElementById('notes-editor'); // the editable input
+      if (!container || !accept || !notesEditor) return;
+
+      // Snapshot current editor HTML; never move or clear the editor
+      const html = notesEditor.innerHTML || '';
+      const hasNotes = html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().length > 0;
+
+      // Remove prior Notes render containers and continuation pages (never touch signature pages)
+      container.querySelectorAll('[data-role="notes-render"], [data-generated="notes-page-cont"]').forEach(el => {
+        const signatureEl = document.getElementById('acceptance-preview');
+        if (signatureEl && el.contains(signatureEl)) return;
+        el.remove();
+      });
+
+      if (!hasNotes) return; // nothing to render (editor stays visible and editable)
+
+      // Insert fresh render container after signature, before footer
+      const targetSection = accept.closest('.document-page');
+      const footer = targetSection?.querySelector('.page-footer');
+      if (!targetSection || !footer) return;
+
+      const render = document.createElement('div');
+      render.setAttribute('data-role', 'notes-render');
+      render.className = 'text-sm text-gray-700';
+      render.innerHTML = html;
+      targetSection.insertBefore(render, footer);
+
+      // Pagination: clone nodes into continuation pages if overflow
+      requestAnimationFrame(() => {
+        const footerRect = footer.getBoundingClientRect();
+        const renderRect = render.getBoundingClientRect();
+        const fitsOnSamePage = (footerRect.top - renderRect.top) >= renderRect.height;
+        if (fitsOnSamePage) return;
+
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        const nodes = Array.from(temp.childNodes);
+
+        // Clear inline render and paginate content into continuation pages
+        render.innerHTML = '';
+
+        let currentSection = targetSection;
+        let currentContainer = render;
+
+        function createNotesPageAfter(section) {
+          const sec = document.createElement('section');
+          sec.className = 'document-page p-12 aspect-[1/1.414]';
+          sec.setAttribute('data-generated', 'notes-page-cont');
+          sec.innerHTML = `
+            <div class="page-header"><div></div><div></div></div>
+            <div class="text-sm text-gray-700" data-role="notes-content"></div>
+            <div class="page-footer"><span class="page-number"></span> / <span class="page-count"></span></div>`;
+          if (section.nextSibling) container.insertBefore(sec, section.nextSibling);
+          else container.appendChild(sec);
+          return sec;
+        }
+
+        function currentAvailableVsBlock() {
+          const footerEl = currentSection.querySelector('.page-footer');
+          const availableHeight = footerEl.getBoundingClientRect().top - currentContainer.getBoundingClientRect().top;
+          const blockHeight = currentContainer.getBoundingClientRect().height;
+          return { availableHeight, blockHeight };
+        }
+
+        for (const node of nodes) {
+          if (typeof MAX_PAGES === 'number' && getVisiblePages && getVisiblePages().length >= MAX_PAGES) break;
+          const clone = node.cloneNode(true);
+          currentContainer.appendChild(clone);
+          const { availableHeight, blockHeight } = currentAvailableVsBlock();
+          if (availableHeight < blockHeight) {
+            currentContainer.removeChild(clone);
+            currentSection = createNotesPageAfter(currentSection);
+            currentContainer = currentSection.querySelector('[data-role="notes-content"]');
+            currentContainer.appendChild(clone);
+            const check2 = currentAvailableVsBlock();
+            if (check2.availableHeight < check2.blockHeight) {
+              // Extremely tall node; leave as-is to avoid infinite loops
+            }
+          }
+        }
+
+        // Apply backgrounds and numbering after adding notes continuation pages
+        const pagesAll = document.querySelectorAll('#document-preview .document-page');
+        const bg2 = AppState.theme && AppState.theme.background ? AppState.theme.background : '';
+        pagesAll.forEach(p => { p.style.backgroundImage = bg2 ? `url("${bg2}")` : 'none'; });
+        updatePageNumbers(pagesAll);
+        updatePageHeaders();
+      });
+    }
+
+    // Payment Advice (Invoice mode only) – hardcoded, clone-not-move, continuation pages
+    function paginatePaymentAdvice() {
+      if (AppState.mode !== 'invoice') return;
+
+      const container = document.getElementById('document-preview');
+      if (!container) return;
+
+      // Dynamic hardcoded advice content with selected due date and account details
+      const due = AppState?.document?.dueDate ? formatDate(AppState.document.dueDate) : '';
+      const html = due
+        ? `<p><strong>Payment Advice:</strong> This invoice is due on <strong>${due}</strong>.<br/>Please make payment to <strong>Tomar Contracting Limited</strong>, Account No: <strong>38-9024-0318399-00</strong>.</p>`
+        : '';
+
+      // Cleanup previous advice render/continuation pages (never touch signature pages)
+      const signatureEl = document.getElementById('acceptance-preview');
+      container.querySelectorAll('[data-role="advice-render"], [data-generated="advice-page-cont"]').forEach(el => {
+        if (signatureEl && el.contains(signatureEl)) return;
+        el.remove();
+      });
+
+      // Determine placement: after notes if present; otherwise after signature
+      let anchorSection = null;
+      const notesConts = container.querySelectorAll('[data-generated="notes-page-cont"]');
+      if (notesConts.length > 0) {
+        anchorSection = notesConts[notesConts.length - 1];
+      } else {
+        const notesInline = container.querySelector('[data-role="notes-render"]');
+        if (notesInline) anchorSection = notesInline.closest('.document-page');
+      }
+      if (!anchorSection) {
+        const sig = document.getElementById('acceptance-preview');
+        anchorSection = sig ? sig.closest('.document-page') : null;
+      }
+      if (!anchorSection) return;
+
+      const footer = anchorSection.querySelector('.page-footer');
+      if (!footer) return;
+
+      // Insert inline render container before footer on the anchor page
+      const render = document.createElement('div');
+      render.setAttribute('data-role', 'advice-render');
+      render.className = 'text-sm text-gray-700';
+      render.innerHTML = html;
+      anchorSection.insertBefore(render, footer);
+
+      // Paginate if overflow (clone‑not‑move)
+      requestAnimationFrame(() => {
+        const footerRect = footer.getBoundingClientRect();
+        const renderRect = render.getBoundingClientRect();
+        const fitsOnSamePage = (footerRect.top - renderRect.top) >= renderRect.height;
+
+        if (fitsOnSamePage) { applyBackgroundsAndNumbering(); return; }
+
+        const temp = document.createElement('div'); temp.innerHTML = html; const nodes = Array.from(temp.childNodes);
+        render.innerHTML = '';
+        let currentSection = anchorSection; let currentContainer = render;
+
+        function createAdvicePageAfter(section) {
+          const sec = document.createElement('section');
+          sec.className = 'document-page p-12 aspect-[1/1.414]';
+          sec.setAttribute('data-generated', 'advice-page-cont');
+          sec.innerHTML = `
+            <div class="page-header"><div></div><div></div></div>
+            <div class="text-sm text-gray-700" data-role="advice-content"></div>
+            <div class="page-footer"><span class="page-number"></span> / <span class="page-count"></span></div>`;
+          if (section.nextSibling) container.insertBefore(sec, section.nextSibling); else container.appendChild(sec);
+          return sec;
+        }
+
+        function currentAvail() {
+          const footerEl = currentSection.querySelector('.page-footer');
+          const availableHeight = footerEl.getBoundingClientRect().top - currentContainer.getBoundingClientRect().top;
+          const blockHeight = currentContainer.getBoundingClientRect().height;
+          return { availableHeight, blockHeight };
+        }
+
+        for (const node of nodes) {
+          if (typeof MAX_PAGES === 'number' && getVisiblePages && getVisiblePages().length >= MAX_PAGES) break;
+          const clone = node.cloneNode(true);
+          currentContainer.appendChild(clone);
+          const { availableHeight, blockHeight } = currentAvail();
+          if (availableHeight < blockHeight) {
+            currentContainer.removeChild(clone);
+            currentSection = createAdvicePageAfter(currentSection);
+            currentContainer = currentSection.querySelector('[data-role="advice-content"]');
+            currentContainer.appendChild(clone);
+            const check2 = currentAvail(); if (check2.availableHeight < check2.blockHeight) { /* leave as-is */ }
+          }
+        }
+
+        applyBackgroundsAndNumbering();
+      });
+    }
+
+    // QUOTE: Clean and prevent footer overlap by moving overflow to continuation pages
+    function cleanupQuoteContinuationPages(){
+      const container = document.getElementById('document-preview');
+      if (!container) return;
+      container.querySelectorAll('[data-generated="quote-page-cont"]').forEach(el => el.remove());
+    }
+
+    function paginateQuoteOverflow(){
+      if (AppState.mode !== 'quote') return;
+      const container = document.getElementById('document-preview');
+      if (!container) return;
+      // Work on the last visible page only
+      const pages = Array.from(container.querySelectorAll('.document-page')).filter(p => getComputedStyle(p).display !== 'none');
+      if (pages.length === 0) return;
+      const section = pages[pages.length - 1];
+      const footer = section.querySelector('.page-footer');
+      if (!footer) return;
+
+      requestAnimationFrame(() => {
+        const footerTop = footer.getBoundingClientRect().top;
+        // Collect content children between header and footer
+        const elements = Array.from(section.children).filter(el => !el.classList.contains('page-header') && !el.classList.contains('page-footer'));
+        if (elements.length === 0) return;
+        const lastEl = elements[elements.length - 1];
+        // Do not interfere with acceptance or notes (they have their own pagination/placement)
+        if (lastEl.id === 'acceptance-preview' || lastEl.getAttribute('data-role') === 'notes-render') return;
+        const lastBottom = lastEl.getBoundingClientRect().bottom;
+        if (lastBottom <= footerTop - 2) return; // fits, nothing to do
+
+        // Create a quote continuation page and move the overflowing block
+        const cont = document.createElement('section');
+        cont.className = 'document-page p-12 aspect-[1/1.414]';
+        cont.setAttribute('data-generated','quote-page-cont');
+        cont.innerHTML = `
+          <div class="page-header"><div></div><div></div></div>
+          <div class="page-footer"><span class="page-number"></span> / <span class="page-count"></span></div>`;
+        if (section.nextSibling) container.insertBefore(cont, section.nextSibling); else container.appendChild(cont);
+        const contFooter = cont.querySelector('.page-footer');
+        cont.insertBefore(lastEl, contFooter);
+
+        // Apply backgrounds and numbering after adjusting pages
+        applyBackgroundsAndNumbering();
+      });
     }
 
     function renderBranchDropdown() {
