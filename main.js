@@ -1,53 +1,23 @@
-   import { ThemeSources, NotesTemplates } from './config.js';
-   import { debounce, formatCurrency, formatDate, toLocalYMD, todayLocalYMD, dateFromYMD, printDocument, capitalize, toCssUrl, schedule, getAvailableHeight, fitsInSection, insertBeforeFooter, ASSET_RESOLVER, EmbeddedAssets, DefaultLogoPath } from './utils.js';
+   import { todayLocalYMD, dateFromYMD, toLocalYMD, printDocument } from './utils.js';
    import { render, buildThemesGrid } from './dom.js';
    import { AppState, loadState, getInitialState, saveState } from './state.js';
+   import { addEventListeners } from './events.js';
    // APP STATE is now managed in state.js
     // File-based themes will be replaced by embedded data URIs later
 
-    // Asset helpers moved to utils.js
-
-    // Page helpers moved into dom.js
-
-    // getAvailableHeight moved to utils.js
-
-    // fitsInSection moved to utils.js
-
-    // schedule moved to utils.js
-    function repaginateAndRefresh(paginateFn) { schedule(() => { paginateFn(); refreshDocumentPages(); }); }
-    // Debounce helper moved to utils.js
-
-    // Insert a node before a section's footer (or append if missing)
-    // insertBeforeFooter moved to utils.js
-
-    // Build a continuation page for items with a table body injected
-    function createItemsContinuationPage(rowsHtml) {
-      const sec = createContinuationPage('items-page', 'items-content');
-      const container = sec.querySelector('[data-role="items-content"]');
-      container.innerHTML = `
-        <table class="w-full mb-8 text-sm">
-          <thead class="border-b-2 border-gray-800">
-            <tr>
-              <th class="text-left font-bold text-gray-600 uppercase py-2">Description</th>
-              <th class="text-right font-bold text-gray-600 uppercase py-2 w-24">Quantity</th>
-              <th class="text-right font-bold text-gray-600 uppercase py-2 w-28">Unit Price</th>
-              <th class="text-right font-bold text-gray-600 uppercase py-2 w-32">Total</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>`;
-      return sec;
-    }
+    // Small DOM helpers for DRY event wiring and visibility
+    function el(id) { return document.getElementById(id); }
+    function on(id, event, handler) { const e = el(id); if (e) e.addEventListener(event, handler); }
+    function setAppVisible(show) { const appEl = el('app-container'); if (appEl) appEl.style.display = show ? 'flex' : 'none'; }
 
     document.addEventListener('DOMContentLoaded', () => {
       try {
-        const appEl = document.getElementById('app-container');
-        if (appEl) appEl.style.display = 'none';
+        setAppVisible(false);
         loadState();
         // After loading state, ensure a document number exists
         generateDocumentNumber();
         initApp();
-        if (appEl) appEl.style.display = 'flex';
+        setAppVisible(true);
       } catch (error) {
         console.error('Failed to initialize Tomar Admin:', error);
         const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -117,89 +87,7 @@
 
     // STATE MANAGEMENT moved to state.js
 
-    // EVENT LISTENERS
-    function addEventListeners() {
-      document.getElementById('client-name').addEventListener('input', e => { AppState.clientInfo.name = e.target.value; render(); });
-      document.getElementById('client-address').addEventListener('input', e => { AppState.clientInfo.address = e.target.value; render(); });
-      document.getElementById('client-email').addEventListener('input', e => { AppState.clientInfo.email = e.target.value; render(); });
-      document.getElementById('client-phone').addEventListener('input', e => { AppState.clientInfo.phone = e.target.value; render(); });
-      document.getElementById('doc-date').addEventListener('change', e => { AppState.document.date = e.target.value; render(); });
-      document.getElementById('due-date').addEventListener('change', e => { AppState.document.dueDate = e.target.value; render(); });
-      document.getElementById('discount-value').addEventListener('input', e => {
-        const raw = e.target.value.trim();
-        if (raw === '') {
-          AppState.totals.discount = null;
-        } else {
-          const numeric = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
-          AppState.totals.discount = isNaN(numeric) || numeric <= 0 ? null : numeric;
-        }
-        render();
-      });
-      document.getElementById('gst-rate').addEventListener('input', e => {
-        const v = parseFloat(e.target.value);
-        AppState.totals.gstRate = isNaN(v) ? 0 : v;
-        render();
-      });
-      // Notes RTE input (debounced)
-      // This creates a debounced version of your pagination function
-      const debouncedNotesUpdate = debounce(paginateNotesContent, 100);
-      const notesEditor = document.getElementById('notes-editor');
-      if (notesEditor) {
-        // The listener now calls the smoother, debounced function
-        notesEditor.addEventListener('input', debouncedNotesUpdate);
-      }
-      document.getElementById('branch-form').addEventListener('submit', handleBranchFormSubmit);
-      // Payment Advice editor input (debounced)
-      const advEd = document.getElementById('advice-editor');
-      if (advEd) {
-        const debouncedAdviceUpdate = debounce(() => { paginatePaymentAdvice(); refreshDocumentPages(); }, 200);
-        advEd.addEventListener('input', debouncedAdviceUpdate);
-      }
-      // Letterhead RTE input
-      const lhContent = document.getElementById('letterhead-editor');
-      if (lhContent) lhContent.addEventListener('input', e => { AppState.letterhead.content = e.target.innerHTML; render(); });
-      // RTE toolbars
-      bindRteToolbar('notes-toolbar');
-      bindRteToolbar('letterhead-toolbar');
-      bindRteToolbar('advice-toolbar');
-      // Notes templates (quote mode only)
-      const notesTpl = document.getElementById('notes-template');
-      if (notesTpl) notesTpl.addEventListener('change', e => {
-        const key = e.target.value;
-        if (!key) return;
-        const html = (NotesTemplates[key] || '').trim();
-        AppState.notes = html;
-        const ed = document.getElementById('notes-editor');
-        if (ed) ed.innerHTML = html;
-        render();
-      });
-      const accName = document.getElementById('accept-name');
-      const accSig = document.getElementById('accept-signature');
-      if (accName) accName.addEventListener('input', e => { AppState.acceptance.name = e.target.value; render(); });
-      if (accSig) accSig.addEventListener('input', e => { AppState.acceptance.signature = e.target.value; render(); });
-    }
-
-    // Bridge DOM module events to internal handlers
-    window.addEventListener('dom:updateLineItem', (e) => {
-      const { index, key, value } = e.detail || {};
-      updateLineItem(index, key, value);
-    });
-    window.addEventListener('dom:removeLineItem', (e) => {
-      const { index } = e.detail || {};
-      removeLineItem(index);
-    });
-    window.addEventListener('dom:loadDocument', (e) => {
-      const { id } = e.detail || {};
-      loadDocument(id);
-    });
-    window.addEventListener('dom:deleteDocument', (e) => {
-      const { id } = e.detail || {};
-      deleteDocument(id);
-    });
-    window.addEventListener('dom:updateSelectedBranch', (e) => {
-      const { index } = e.detail || {};
-      updateSelectedBranch(index);
-    });
+    // Event wiring moved to events.js
 
     // RENDERING moved to dom.js
 
@@ -212,155 +100,7 @@
     // Centralize mode-based UI visibility toggles
     // updateModeUI moved to dom.js
 
-    // Pagination: split items across multiple pages
-    const ROWS_PER_PAGE_FIRST = 12;
-    const ROWS_PER_PAGE_CONT = 22;
-    const MAX_PAGES = 10; // hard cap for total visible pages
-
-    function getVisiblePages() {
-      const nodes = Array.from(document.querySelectorAll('#document-preview .document-page'));
-      return nodes.filter(p => window.getComputedStyle(p).display !== 'none');
-    }
-
-    function renderItemsAndPaginate() {
-      // Page 1 rows
-      const tbody = document.getElementById('preview-line-items');
-      if (!tbody) return;
-      const rows = AppState.lineItems.map(item => buildItemRowHTML(item));
-      tbody.innerHTML = rows.slice(0, ROWS_PER_PAGE_FIRST).join('');
-
-      // Remove previously generated item pages, but never remove a page containing the signature block
-      (function safeRemoveOldItemPages() {
-        const acceptEl = document.getElementById('acceptance-preview');
-        document.querySelectorAll('#document-preview [data-generated="items-page"]').forEach(el => {
-          if (acceptEl && el.contains(acceptEl)) return; // preserve signature page
-          el.remove();
-        });
-      })();
-      // Remove any previously generated acceptance-only pages (will be re-evaluated later)
-      // (No special acceptance pages to clean)
-
-      const notesPage = document.getElementById('notes-page');
-      const container = document.getElementById('document-preview');
-      if (!container) return;
-
-      let start = ROWS_PER_PAGE_FIRST;
-      let pageIndex = 1;
-      // Respect the global page cap: base page is 1, so allow up to MAX_PAGES - 1 continuation pages here
-      const maxContinuationPages = Math.max(0, MAX_PAGES - 1);
-      while (start < rows.length && pageIndex <= maxContinuationPages) {
-        const chunk = rows.slice(start, start + ROWS_PER_PAGE_CONT).join('');
-        const section = createItemsContinuationPage(chunk);
-        if (notesPage && notesPage.parentElement === container) {
-          container.insertBefore(section, notesPage);
-        } else {
-          container.appendChild(section);
-        }
-        start += ROWS_PER_PAGE_CONT;
-        pageIndex++;
-      }
-      // Refresh after adding items continuation pages
-      refreshDocumentPages();
-    }
-
-    // Ensure acceptance block sits 96px below the last item row, after the final items page.
-    function ensureAcceptancePositioning() {
-      if (AppState.mode !== 'quote') return;
-      const container = document.getElementById('document-preview');
-      const accept = document.getElementById('acceptance-preview');
-      if (!container || !accept) return;
-      // Identify the target section: the last generated items page or first page
-      const generated = document.querySelectorAll('#document-preview [data-generated="items-page"]');
-      const targetSection = generated.length > 0
-        ? generated[generated.length - 1]
-        : document.querySelector('#document-preview .document-page');
-      if (!targetSection) return;
-
-      // Insert acceptance into targetSection just before its footer
-      const footer = targetSection.querySelector('.page-footer');
-      if (accept.parentElement !== targetSection || (footer && accept.nextElementSibling !== footer)) {
-        insertBeforeFooter(targetSection, accept);
-      }
-
-      // Enforce 1 inch spacing from prior content
-      accept.style.marginTop = '96px';
-
-      // Double rAF to ensure layout is fully stable before measuring
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const footerRect = footer ? footer.getBoundingClientRect() : null;
-          const acceptRect = accept.getBoundingClientRect();
-          let needsNewPage = false;
-          if (footerRect) {
-            const currentYPosition = acceptRect.top;
-            const availableHeight = footerRect.top - currentYPosition;
-            const blockHeight = acceptRect.height + 96; // include 1-inch margin
-            needsNewPage = availableHeight < blockHeight;
-          }
-          if (!needsNewPage) return;
-          const visibleCount = getVisiblePages().length;
-          if (visibleCount >= MAX_PAGES) { accept.style.marginTop = '24px'; return; }
-          const acceptPage = createContinuationPage('signature-page', 'signature-content');
-          if (targetSection && targetSection.parentNode) {
-            if (targetSection.nextSibling) targetSection.parentNode.insertBefore(acceptPage, targetSection.nextSibling);
-            else targetSection.parentNode.appendChild(acceptPage);
-          } else { container.appendChild(acceptPage); }
-          const acceptFooter = acceptPage.querySelector('.page-footer');
-          accept.style.marginTop = '96px';
-          insertBeforeFooter(acceptPage, accept);
-          // Refresh after adding a signature page
-          refreshDocumentPages();
-        });
-      });
-    }
-
-    function buildItemRowHTML(item) {
-      const qty = isFinite(item.quantity) ? item.quantity : 0;
-      const price = isFinite(item.unitPrice) ? item.unitPrice : 0;
-      const total = qty * price;
-      return `
-        <tr class="border-b border-gray-200">
-          <td class="py-2 pr-2 whitespace-pre-line">${item.description || ''}</td>
-          <td class="text-right py-2 px-2">${qty || ''}</td>
-          <td class="text-right py-2 px-2">${formatCurrency(price)}</td>
-          <td class="text-right py-2 pl-2 font-medium">${formatCurrency(total)}</td>
-        </tr>`;
-    }
-
-      // THEMES
-    function getAllThemeSources() {
-      // Prefer embedded data URIs if available, otherwise fall back to resolved file paths
-      const base = (EmbeddedAssets.backgrounds && EmbeddedAssets.backgrounds.length > 0)
-        ? EmbeddedAssets.backgrounds
-        : ThemeSources;
-      return base.map(ASSET_RESOLVER);
-    }
-
-    function buildThemesGrid() {
-      const grid = document.getElementById('themes-grid');
-      if (!grid) return;
-      grid.innerHTML = '';
-      const sources = getAllThemeSources();
-      sources.forEach((src, index) => {
-        const wrap = document.createElement('button');
-        wrap.type = 'button';
-        wrap.className = 'relative border rounded overflow-hidden aspect-square group focus:outline-none focus:ring-2 focus:ring-blue-500';
-        wrap.title = `Theme ${index + 1}`;
-        wrap.addEventListener('click', () => selectTheme(src));
-        wrap.innerHTML = `
-          <img src="${src}" alt="Theme ${index + 1}" class="w-full h-full object-cover" />
-          <span class="absolute inset-0 ring-2 ring-transparent group-hover:ring-blue-400"></span>`;
-        grid.appendChild(wrap);
-      });
-
-      const clearBtn = document.getElementById('clear-theme-btn');
-      if (clearBtn) clearBtn.onclick = () => { AppState.theme = { background: '' }; render(); };
-    }
-
-    function selectTheme(src) {
-      AppState.theme = { background: src };
-      render();
-    }
+    // Pagination and heavy DOM logic now lives in dom.js/pagination.js
 
     // Paginate letterhead content into additional pages if it overflows.
     // moved to pagination.js: paginateLetterheadContent

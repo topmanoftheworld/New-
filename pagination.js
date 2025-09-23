@@ -4,7 +4,35 @@ import { formatDate } from './utils.js';
 import { refreshDocumentPages } from './dom.js';
 import { fitsInSection, insertBeforeFooter } from './utils.js';
 
+// Hard cap for total visible pages
 const MAX_PAGES = 10;
+
+// --- Small helpers to keep code DRY ----------------------------------------
+
+function getPreviewContainer() {
+  return document.getElementById('document-preview');
+}
+
+function getScrollContainer(fallback) {
+  return document.querySelector('.preview-column') || fallback;
+}
+
+function restoreScroll(scrollContainer, top) {
+  if (!scrollContainer) return;
+  requestAnimationFrame(() => { scrollContainer.scrollTop = top; });
+}
+
+function fitsSamePage(footerEl, blockEl) {
+  if (!footerEl || !blockEl) return true;
+  const footerRect = footerEl.getBoundingClientRect();
+  const blockRect = blockEl.getBoundingClientRect();
+  return (footerRect.top - blockRect.top) >= blockRect.height;
+}
+
+function insertAfter(container, newNode, afterNode) {
+  if (afterNode && afterNode.nextSibling) container.insertBefore(newNode, afterNode.nextSibling);
+  else container.appendChild(newNode);
+}
 
 function getVisiblePages() {
   const nodes = Array.from(document.querySelectorAll('#document-preview .document-page'));
@@ -24,7 +52,7 @@ function createContinuationPage(generatedType, contentRole, extraClass = '') {
 
 export function paginateLetterheadContent() {
   if (AppState.mode !== 'letterhead') return;
-  const container = document.getElementById('document-preview');
+  const container = getPreviewContainer();
   if (!container) return;
   container.querySelectorAll('[data-generated="letterhead-page"]').forEach(el => el.remove());
 
@@ -65,9 +93,9 @@ export function paginateLetterheadContent() {
 export function paginateNotesContent() {
   if (AppState.mode === 'letterhead') return; // notes not paginated in letterhead
 
-  const container = document.getElementById('document-preview');
+  const container = getPreviewContainer();
   const accept = document.getElementById('acceptance-preview');
-  const scrollContainer = document.querySelector('.preview-column') || container;
+  const scrollContainer = getScrollContainer(container);
   const savedTop = scrollContainer ? scrollContainer.scrollTop : 0;
   if (!container || !accept) return;
 
@@ -91,13 +119,7 @@ export function paginateNotesContent() {
   insertBeforeFooter(targetSection, render);
 
   requestAnimationFrame(() => {
-    const footerRect = footer.getBoundingClientRect();
-    const renderRect = render.getBoundingClientRect();
-    const fitsOnSamePage = (footerRect.top - renderRect.top) >= renderRect.height;
-    if (fitsOnSamePage) {
-      if (scrollContainer) requestAnimationFrame(() => { scrollContainer.scrollTop = savedTop; });
-      return;
-    }
+    if (fitsSamePage(footer, render)) { restoreScroll(scrollContainer, savedTop); return; }
 
     const temp = document.createElement('div');
     temp.innerHTML = html;
@@ -141,14 +163,14 @@ export function paginateNotesContent() {
     }
 
     refreshDocumentPages();
-    if (scrollContainer) requestAnimationFrame(() => { scrollContainer.scrollTop = savedTop; });
+    restoreScroll(scrollContainer, savedTop);
   });
 }
 
 export function paginatePaymentAdvice() {
   if (AppState.mode !== 'invoice') return;
-  const container = document.getElementById('document-preview');
-  const scrollContainer = document.querySelector('.preview-column') || container;
+  const container = getPreviewContainer();
+  const scrollContainer = getScrollContainer(container);
   const savedTop = scrollContainer ? scrollContainer.scrollTop : 0;
   if (!container) return;
 
@@ -187,23 +209,16 @@ export function paginatePaymentAdvice() {
   insertBeforeFooter(anchorSection, render);
 
   requestAnimationFrame(() => {
-    const footerRect = footer.getBoundingClientRect();
-    const renderRect = render.getBoundingClientRect();
-    const fitsOnSamePage = (footerRect.top - renderRect.top) >= renderRect.height;
-    if (fitsOnSamePage) {
-      if (scrollContainer) requestAnimationFrame(() => { scrollContainer.scrollTop = savedTop; });
-      return;
-    }
+    if (fitsSamePage(footer, render)) { restoreScroll(scrollContainer, savedTop); return; }
 
     if (getVisiblePages().length >= MAX_PAGES) return;
     const sec = createContinuationPage('advice-page-cont', 'advice-content');
     const role = sec.querySelector('[data-role="advice-content"]');
     role.innerHTML = `<div class="text-sm text-gray-700">${html}</div>`;
-    if (anchorSection.nextSibling) container.insertBefore(sec, anchorSection.nextSibling);
-    else container.appendChild(sec);
+    insertAfter(container, sec, anchorSection);
 
     refreshDocumentPages();
-    if (scrollContainer) requestAnimationFrame(() => { scrollContainer.scrollTop = savedTop; });
+    restoreScroll(scrollContainer, savedTop);
   });
 }
 
@@ -217,4 +232,3 @@ export function paginateQuoteOverflow() {
   // This function can be expanded to ensure quote pages don't overlap footers
   // Currently a no-op placeholder as main pagination is handled elsewhere
 }
-

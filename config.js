@@ -1,16 +1,13 @@
-    export const ThemeSources = [
-      'Assets/1.png',
-      'Assets/2.png',
-      'Assets/3.png',
-      'Assets/4.png',
-      'Assets/5.png',
-      'Assets/6.png',
-      'Assets/7.png',
-      'Assets/8.png',
-      'Assets/9.png'
-    ];
-     // Notes/Terms templates (HTML)
-    export const NotesTemplates = {
+// Theme image sources used for preview page backgrounds.
+// Keep the count in sync with files under `Assets/`.
+// Resolve theme sources relative to this module file for robust ES module URLs
+export const ThemeSources = Array.from(
+  { length: 9 },
+  (_, i) => new URL(`./Assets/${i + 1}.png`, import.meta.url).href
+);
+
+// Notes/Terms templates (HTML)
+export const NotesTemplates = Object.freeze({
       exterior: `
         <h3>Agreement & Acceptance</h3>
         <p><strong>Binding Agreement:</strong> This quotation is valid for acceptance for 90 days from the date of issue. Acceptance must be confirmed in writing (e.g., via email or by signing and returning this document). In the absence of written confirmation, a verbal or written instruction for work to commence will constitute your full acceptance of this quotation and all terms and conditions contained herein.</p>
@@ -79,4 +76,4 @@
         <p><strong>Limitation of Liability:</strong> Liability is limited to the total contract price.</p>
         <p><strong>Dispute Resolution:</strong> Disputes will first be addressed via good-faith negotiation, then mediation or adjudication under the CCA if required.</p>
       `
-    };
+    });

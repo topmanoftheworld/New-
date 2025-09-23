@@ -1,6 +1,30 @@
 // Centralized application state and persistence helpers
+// This module owns the single source of truth for app data.
 
+// Storage key for persisted global-only data
+const STORAGE_KEY = 'tomarAdminState';
+
+// Public, live state object. Other modules import this binding.
 export let AppState = {};
+
+// --- Utilities --------------------------------------------------------------
+
+// Safely get an item from localStorage (guard for environments without it)
+function lsGet(key) {
+  try { return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null; }
+  catch { return null; }
+}
+
+// Safely set an item in localStorage
+function lsSet(key, value) {
+  try { if (typeof localStorage !== 'undefined') localStorage.setItem(key, value); }
+  catch { /* ignore quota/availability errors */ }
+}
+
+// Safe JSON parse that returns null on error
+function safeParseJSON(s) {
+  try { return JSON.parse(s); } catch { return null; }
+}
 
 export function getInitialState() {
   return {
@@ -25,7 +49,8 @@ export function getInitialState() {
 }
 
 export function saveState() {
-  localStorage.setItem('tomarAdminState', JSON.stringify(AppState.global));
+  // Persist only the lightweight, global slice (counters, savedDocuments list, etc.)
+  lsSet(STORAGE_KEY, JSON.stringify(AppState.global));
 }
 
 // Migration: normalize any stale/invalid asset paths in current/saved state
@@ -33,6 +58,10 @@ export function migrateAssetPath(p) {
   if (!p) return p;
   // Deduplicate accidental double-prefix
   p = p.replace(/^Assets\/Assets\//, 'Assets/');
+  // Collapse multiple consecutive slashes
+  p = p.replace(/\/+/, '/');
+  // Trim stray spaces around filename
+  p = p.replace(/\s+\.png$/i, '.png').trim();
   // Rename old file with spaces to normalized one
   if (p === 'Assets/Image 1 .png') return 'Assets/1.png';
   return p;
@@ -44,7 +73,7 @@ export function migrateAssetPaths() {
     AppState.theme.background = migrateAssetPath(AppState.theme.background);
   }
   // Fix saved documents’ theme paths
-  const saved = (AppState.global && Array.isArray(AppState.global.savedDocuments))
+  const saved = Array.isArray(AppState?.global?.savedDocuments)
     ? AppState.global.savedDocuments
     : [];
   saved.forEach(doc => {
@@ -57,15 +86,26 @@ export function migrateAssetPaths() {
 export function loadState() {
   const initialState = getInitialState();
   AppState = initialState;
-  const savedGlobalState = localStorage.getItem('tomarAdminState');
-  if (savedGlobalState) {
-    try {
-      const parsedGlobal = JSON.parse(savedGlobalState);
-      Object.assign(AppState.global, parsedGlobal);
-    } catch (e) { console.error('Error parsing saved state:', e); }
+  const savedRaw = lsGet(STORAGE_KEY);
+  if (savedRaw) {
+    const parsedGlobal = safeParseJSON(savedRaw);
+    if (parsedGlobal && typeof parsedGlobal === 'object') {
+      // Merge only known keys to avoid pulling in unexpected shapes
+      if (Array.isArray(parsedGlobal.savedDocuments)) AppState.global.savedDocuments = parsedGlobal.savedDocuments;
+      if (parsedGlobal.counters && typeof parsedGlobal.counters === 'object') {
+        AppState.global.counters.quote = Number(parsedGlobal.counters.quote) || AppState.global.counters.quote;
+        AppState.global.counters.invoice = Number(parsedGlobal.counters.invoice) || AppState.global.counters.invoice;
+      }
+    }
   }
   // Ensure any stale asset paths are corrected before using them
   migrateAssetPaths();
   // Note: generateDocumentNumber is called by the bootstrapper after loadState
 }
 
+// Optional helper to fully reset in-memory state while preserving global slice
+export function resetStatePreserveGlobal() {
+  const globalSnapshot = JSON.parse(JSON.stringify(AppState.global));
+  AppState = getInitialState();
+  AppState.global = globalSnapshot;
+}

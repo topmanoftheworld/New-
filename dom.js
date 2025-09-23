@@ -1,15 +1,25 @@
 // DOM rendering and UI update helpers
 import { AppState, getInitialState } from './state.js';
 import { ThemeSources } from './config.js';
-import { formatCurrency, formatDate, capitalize, toCssUrl, fitsInSection, insertBeforeFooter, getAvailableHeight, ASSET_RESOLVER, EmbeddedAssets, DefaultLogoPath } from './utils.js';
+import { formatCurrency, formatDate, capitalize, toCssUrl, fitsInSection, insertBeforeFooter, getAvailableHeight, ASSET_RESOLVER, EmbeddedAssets, DefaultLogoPath, isFiniteNumber } from './utils.js';
 import { paginateLetterheadContent, paginateNotesContent, paginatePaymentAdvice, cleanupQuoteContinuationPages, paginateQuoteOverflow } from './pagination.js';
 
 export function applyBackgroundsAndNumbering() {
   const pagesAll = document.querySelectorAll('#document-preview .document-page');
   const bg2 = AppState.theme && AppState.theme.background ? AppState.theme.background : '';
-  pagesAll.forEach(p => { p.style.backgroundImage = bg2 ? toCssUrl(bg2) : 'none'; });
+  const resolved = bg2 ? new URL(bg2, document.baseURI).href : '';
+  pagesAll.forEach(p => { p.style.backgroundImage = resolved ? toCssUrl(resolved) : 'none'; });
   updatePageNumbers(pagesAll);
   updatePageHeaders();
+}
+
+// Small DOM helpers to reduce repetition and guard nulls
+function el(id) { return document.getElementById(id); }
+function setText(id, value) { const e = el(id); if (e) e.innerText = value ?? ''; }
+function setHTML(id, value) { const e = el(id); if (e) e.innerHTML = value ?? ''; }
+function setDisplay(target, show = true) {
+  const e = typeof target === 'string' ? el(target) : target;
+  if (e) e.style.display = show ? '' : 'none';
 }
 
 export function updatePageNumbers(pagesNodeList) {
@@ -57,8 +67,8 @@ export function updateModeUI() {
 }
 
 export function buildItemRowHTML(item) {
-  const qty = isFinite(item.quantity) ? item.quantity : 0;
-  const price = isFinite(item.unitPrice) ? item.unitPrice : 0;
+  const qty = isFiniteNumber(item.quantity) ? item.quantity : 0;
+  const price = isFiniteNumber(item.unitPrice) ? item.unitPrice : 0;
   const total = qty * price;
   return `
     <tr class="border-b border-gray-200">
@@ -73,7 +83,9 @@ export function getAllThemeSources() {
   const base = (EmbeddedAssets.backgrounds && EmbeddedAssets.backgrounds.length > 0)
     ? EmbeddedAssets.backgrounds
     : ThemeSources;
-  return base.map(ASSET_RESOLVER);
+  return base.map(ASSET_RESOLVER).map(p => {
+    try { return new URL(p, document.baseURI).href; } catch { return p; }
+  });
 }
 
 export function buildThemesGrid() {
@@ -98,7 +110,8 @@ export function buildThemesGrid() {
 }
 
 export function selectTheme(src) {
-  AppState.theme = { background: src };
+  try { AppState.theme = { background: new URL(src, document.baseURI).href }; }
+  catch { AppState.theme = { background: src }; }
   render();
 }
 
@@ -154,8 +167,8 @@ export function renderPreviewLineItems() {
   const tbody = document.getElementById('preview-line-items');
   tbody.innerHTML = '';
   AppState.lineItems.forEach(item => {
-    const qty = isFinite(item.quantity) ? item.quantity : 0;
-    const price = isFinite(item.unitPrice) ? item.unitPrice : 0;
+    const qty = isFiniteNumber(item.quantity) ? item.quantity : 0;
+    const price = isFiniteNumber(item.unitPrice) ? item.unitPrice : 0;
     const total = qty * price;
     const row = document.createElement('tr');
     row.className = 'border-b border-gray-200';
@@ -171,18 +184,18 @@ export function renderPreviewLineItems() {
 export function getValidDiscount() {
   const raw = AppState && AppState.totals ? AppState.totals.discount : null;
   const numeric = typeof raw === 'number' ? raw : parseFloat(raw);
-  if (!isFinite(numeric) || numeric <= 0) return 0;
+  if (!isFiniteNumber(numeric) || numeric <= 0) return 0;
   return numeric;
 }
 
 export function calculateAndRenderTotals() {
   const subtotal = AppState.lineItems.reduce((acc, item) => {
-    const q = isFinite(item.quantity) ? item.quantity : 0;
-    const p = isFinite(item.unitPrice) ? item.unitPrice : 0;
+    const q = isFiniteNumber(item.quantity) ? item.quantity : 0;
+    const p = isFiniteNumber(item.unitPrice) ? item.unitPrice : 0;
     return acc + q * p;
   }, 0);
   const discount = getValidDiscount();
-  const gstRate = isFinite(AppState.totals.gstRate) ? AppState.totals.gstRate : 0;
+  const gstRate = isFiniteNumber(AppState.totals.gstRate) ? AppState.totals.gstRate : 0;
   const taxableAmount = Math.max(0, subtotal - discount);
   const gstAmount = taxableAmount * (gstRate / 100);
   const grandTotal = taxableAmount + gstAmount;
@@ -197,7 +210,7 @@ export function calculateAndRenderTotals() {
       discountValueEl.innerText = '';
     }
   }
-  const gstRateDisplay = isFinite(gstRate) ? gstRate.toFixed(2).replace(/\.?0+$/, '') : '0';
+  const gstRateDisplay = isFiniteNumber(gstRate) ? gstRate.toFixed(2).replace(/\.?0+$/, '') : '0';
   const gstRateEl = document.getElementById('preview-gst-rate');
   const gstAmountEl = document.getElementById('preview-gst-amount');
   if (gstRateEl) gstRateEl.innerText = gstRateDisplay;
@@ -352,28 +365,28 @@ export function renderItemsAndPaginate() {
 }
 
 export function render() {
-  document.getElementById('client-name').value = AppState.clientInfo.name;
-  document.getElementById('client-address').value = AppState.clientInfo.address;
-  document.getElementById('client-email').value = AppState.clientInfo.email;
-  document.getElementById('client-phone').value = AppState.clientInfo.phone;
-  document.getElementById('doc-date').value = AppState.document.date;
-  document.getElementById('due-date').value = AppState.document.dueDate;
+  el('client-name').value = AppState.clientInfo.name;
+  el('client-address').value = AppState.clientInfo.address;
+  el('client-email').value = AppState.clientInfo.email;
+  el('client-phone').value = AppState.clientInfo.phone;
+  el('doc-date').value = AppState.document.date;
+  el('due-date').value = AppState.document.dueDate;
   const discountForInput = getValidDiscount();
-  const discountInputEl = document.getElementById('discount-value');
+  const discountInputEl = el('discount-value');
   discountInputEl.value = discountForInput > 0 ? discountForInput : '';
   if (discountForInput > 0 && typeof AppState.totals.discount !== 'number') AppState.totals.discount = discountForInput;
   if (discountForInput === 0 && AppState.totals.discount !== null) AppState.totals.discount = null;
-  const gstRateValue = isFinite(AppState.totals.gstRate) ? AppState.totals.gstRate : 0;
+  const gstRateValue = isFiniteNumber(AppState.totals.gstRate) ? AppState.totals.gstRate : 0;
   AppState.totals.gstRate = gstRateValue;
-  document.getElementById('gst-rate').value = gstRateValue;
-  if (document.getElementById('notes-editor')) {
+  el('gst-rate').value = gstRateValue;
+  if (el('notes-editor')) {
     const nv = AppState.notes || '';
     const nvHtml = /</.test(nv) ? nv : nv.replace(/\n/g, '<br>');
-    document.getElementById('notes-editor').innerHTML = nvHtml;
+    setHTML('notes-editor', nvHtml);
   }
-  if (document.getElementById('letterhead-editor')) document.getElementById('letterhead-editor').innerHTML = (AppState.letterhead?.content || '');
-  if (document.getElementById('accept-name')) document.getElementById('accept-name').value = AppState.acceptance?.name || '';
-  if (document.getElementById('accept-signature')) document.getElementById('accept-signature').value = AppState.acceptance?.signature || '';
+  if (el('letterhead-editor')) setHTML('letterhead-editor', (AppState.letterhead?.content || ''));
+  if (el('accept-name')) el('accept-name').value = AppState.acceptance?.name || '';
+  if (el('accept-signature')) el('accept-signature').value = AppState.acceptance?.signature || '';
 
   renderBranchDropdown();
   renderLineItems();
@@ -386,7 +399,7 @@ export function render() {
   document.getElementById('bill-to-heading').innerText = toLabel || 'Letterhead';
   document.getElementById('preview-to-heading').innerText = toLabel ? toLabel.toUpperCase() : '';
 
-  const previewPanel = document.getElementById('document-preview');
+  const previewPanel = el('document-preview');
   if (previewPanel) {
     previewPanel.classList.toggle('invoice-background', AppState.mode === 'invoice');
     previewPanel.classList.toggle('quote-background', AppState.mode === 'quote');
@@ -398,53 +411,51 @@ export function render() {
 
   // preview top info
   const selectedBranch = AppState.branches[AppState.selectedBranchIndex] || {};
-  const logoEl = document.getElementById('preview-logo');
+  const logoEl = el('preview-logo');
   const fallbackLogo = EmbeddedAssets.logo || DefaultLogoPath;
   const logoSrc = selectedBranch.logo || fallbackLogo;
   if (logoSrc) { logoEl.src = logoSrc; logoEl.style.display = 'block'; } else { logoEl.style.display = 'none'; }
-  document.getElementById('preview-branch-name').innerText = selectedBranch.name || '';
-  document.getElementById('preview-branch-address').innerText = selectedBranch.address || '';
-  document.getElementById('preview-branch-phone').innerText = selectedBranch.phone ? `P: ${selectedBranch.phone}` : '';
-  document.getElementById('preview-branch-email').innerText = selectedBranch.email ? `E: ${selectedBranch.email}` : '';
-  document.getElementById('preview-branch-website').innerText = selectedBranch.website ? `W: ${selectedBranch.website}` : '';
-  document.getElementById('preview-branch-gst').innerText = selectedBranch.gst ? `GST: ${selectedBranch.gst}` : '';
+  setText('preview-branch-name', selectedBranch.name || '');
+  setText('preview-branch-address', selectedBranch.address || '');
+  setText('preview-branch-phone', selectedBranch.phone ? `P: ${selectedBranch.phone}` : '');
+  setText('preview-branch-email', selectedBranch.email ? `E: ${selectedBranch.email}` : '');
+  setText('preview-branch-website', selectedBranch.website ? `W: ${selectedBranch.website}` : '');
+  setText('preview-branch-gst', selectedBranch.gst ? `GST: ${selectedBranch.gst}` : '');
 
-  document.getElementById('preview-doc-title').innerText = isLetter ? 'Letterhead' : capitalize(AppState.mode);
-  document.getElementById('preview-doc-number').innerText = AppState.document.number;
-  document.getElementById('preview-client-name').innerText = AppState.clientInfo.name;
-  document.getElementById('preview-client-address').innerText = AppState.clientInfo.address;
-  document.getElementById('preview-client-email').innerText = AppState.clientInfo.email;
-  document.getElementById('preview-client-phone').innerText = AppState.clientInfo.phone;
-  document.getElementById('preview-doc-date').innerText = formatDate(AppState.document.date);
-  document.getElementById('preview-due-date').innerText = formatDate(AppState.document.dueDate);
+  setText('preview-doc-title', isLetter ? 'Letterhead' : capitalize(AppState.mode));
+  setText('preview-doc-number', AppState.document.number);
+  setText('preview-client-name', AppState.clientInfo.name);
+  setText('preview-client-address', AppState.clientInfo.address);
+  setText('preview-client-email', AppState.clientInfo.email);
+  setText('preview-client-phone', AppState.clientInfo.phone);
+  setText('preview-doc-date', formatDate(AppState.document.date));
+  setText('preview-due-date', formatDate(AppState.document.dueDate));
 
   const dueLabel = (AppState.mode === 'quote') ? 'Validity Date:' : 'Due Date:';
-  const dueLabelEl = document.getElementById('due-date-label');
-  if (dueLabelEl) dueLabelEl.innerText = (AppState.mode === 'quote') ? 'Validity Date' : 'Due Date';
-  const prevDueLabelEl = document.getElementById('preview-due-date-label');
-  if (prevDueLabelEl) prevDueLabelEl.innerText = dueLabel;
+  setText('due-date-label', (AppState.mode === 'quote') ? 'Validity Date' : 'Due Date');
+  setText('preview-due-date-label', dueLabel);
 
-  const previewTo = document.getElementById('preview-to');
-  const itemsTable = document.getElementById('items-table');
-  const totalsPreview = document.getElementById('totals-preview');
-  const datesRight = document.getElementById('preview-dates-right');
-  const acceptPreview = document.getElementById('acceptance-preview');
-  const payAdvice = document.getElementById('payment-advice-preview');
-  const lhPreview = document.getElementById('preview-letterhead-content');
-  if (previewTo) previewTo.style.display = isLetter ? 'none' : '';
+  const previewTo = el('preview-to');
+  const itemsTable = el('items-table');
+  const totalsPreview = el('totals-preview');
+  const datesRight = el('preview-dates-right');
+  const acceptPreview = el('acceptance-preview');
+  const payAdvice = el('payment-advice-preview');
+  const lhPreview = el('preview-letterhead-content');
+  setDisplay(previewTo, !isLetter);
   const notesPage = document.getElementById('notes-page');
   const hasNotes = (() => {
     const nv = AppState.notes || '';
     const text = nv.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
     return text.length > 0;
   })();
-  if (notesPage) notesPage.style.display = 'none';
-  if (itemsTable) itemsTable.style.display = isLetter ? 'none' : '';
-  if (totalsPreview) totalsPreview.style.display = isLetter ? 'none' : '';
-  if (acceptPreview) acceptPreview.style.display = (AppState.mode === 'quote') ? '' : 'none';
-  if (payAdvice) payAdvice.style.display = (AppState.mode === 'invoice') ? '' : 'none';
-  if (datesRight) datesRight.style.display = isLetter ? 'none' : '';
-  const titleDate = document.getElementById('preview-doc-date-title');
+  setDisplay(notesPage, false);
+  setDisplay(itemsTable, !isLetter);
+  setDisplay(totalsPreview, !isLetter);
+  setDisplay(acceptPreview, (AppState.mode === 'quote'));
+  setDisplay(payAdvice, (AppState.mode === 'invoice'));
+  setDisplay(datesRight, !isLetter);
+  const titleDate = el('preview-doc-date-title');
   if (titleDate) {
     if (isLetter) { titleDate.classList.remove('hidden'); titleDate.textContent = formatDate(AppState.document.date); }
     else { titleDate.classList.add('hidden'); titleDate.textContent = ''; }
