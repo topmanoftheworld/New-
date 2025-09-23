@@ -2,6 +2,7 @@
 import { AppState, getInitialState, saveState } from './state.js';
 import { render } from './dom.js';
 import { NotesTemplates } from './config.js';
+import { debounce, printDocument } from './utils.js';
 
 // Document actions
 function generateDocumentNumber() {
@@ -190,38 +191,29 @@ function bindRteToolbar(toolbarId) {
 
 export function addEventListeners() {
   const on = (id, event, handler) => { const el = document.getElementById(id); if (el) el.addEventListener(event, handler); };
-  on('client-name', 'input', e => { AppState.clientInfo.name = e.target.value; render(); });
-  on('client-address', 'input', e => { AppState.clientInfo.address = e.target.value; render(); });
-  on('client-email', 'input', e => { AppState.clientInfo.email = e.target.value; render(); });
-  on('client-phone', 'input', e => { AppState.clientInfo.phone = e.target.value; render(); });
-  on('doc-date', 'change', e => { AppState.document.date = e.target.value; render(); });
-  on('due-date', 'change', e => { AppState.document.dueDate = e.target.value; render(); });
-  on('discount-value', 'input', e => {
-    const raw = e.target.value.trim();
-    if (raw === '') { AppState.totals.discount = null; }
-    else {
-      const numeric = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
-      AppState.totals.discount = isNaN(numeric) || numeric <= 0 ? null : numeric;
-    }
-    render();
-  });
-  on('gst-rate', 'input', e => {
-    const v = parseFloat(e.target.value);
-    AppState.totals.gstRate = isNaN(v) ? 0 : v;
-    render();
+  const bindStateInput = (id, setter, event = 'input', transform = v => v) => {
+    on(id, event, e => { setter(transform(e.target.value), e); render(); });
+  };
+
+  bindStateInput('client-name', v => { AppState.clientInfo.name = v; });
+  bindStateInput('client-address', v => { AppState.clientInfo.address = v; });
+  bindStateInput('client-email', v => { AppState.clientInfo.email = v; });
+  bindStateInput('client-phone', v => { AppState.clientInfo.phone = v; });
+  bindStateInput('doc-date', v => { AppState.document.date = v; }, 'change');
+  bindStateInput('due-date', v => { AppState.document.dueDate = v; }, 'change');
+  bindStateInput('gst-rate', v => { const n = parseFloat(v); AppState.totals.gstRate = isNaN(n) ? 0 : n; });
+  bindStateInput('discount-value', v => {
+    const raw = String(v).trim();
+    if (raw === '') { AppState.totals.discount = null; return; }
+    const numeric = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
+    AppState.totals.discount = isNaN(numeric) || numeric <= 0 ? null : numeric;
   });
 
   // Debounced editors: simply re-render; pagination is handled downstream
   const notesEditor = document.getElementById('notes-editor');
-  if (notesEditor) {
-    const debouncedNotesUpdate = (fn => { let t; return (e) => { clearTimeout(t); t = setTimeout(() => { fn(e); }, 100); }; })(() => render());
-    notesEditor.addEventListener('input', debouncedNotesUpdate);
-  }
+  if (notesEditor) notesEditor.addEventListener('input', debounce(() => render(), 100));
   const advEd = document.getElementById('advice-editor');
-  if (advEd) {
-    const debouncedAdviceUpdate = (fn => { let t; return (e) => { clearTimeout(t); t = setTimeout(() => { fn(e); }, 200); }; })(() => render());
-    advEd.addEventListener('input', debouncedAdviceUpdate);
-  }
+  if (advEd) advEd.addEventListener('input', debounce(() => render(), 200));
 
   const lhContent = document.getElementById('letterhead-editor');
   if (lhContent) lhContent.addEventListener('input', e => { AppState.letterhead.content = e.target.innerHTML; render(); });
@@ -240,10 +232,8 @@ export function addEventListeners() {
     render();
   });
 
-  const accName = document.getElementById('accept-name');
-  const accSig = document.getElementById('accept-signature');
-  if (accName) accName.addEventListener('input', e => { AppState.acceptance.name = e.target.value; render(); });
-  if (accSig) accSig.addEventListener('input', e => { AppState.acceptance.signature = e.target.value; render(); });
+  bindStateInput('accept-name', v => { AppState.acceptance.name = v; });
+  bindStateInput('accept-signature', v => { AppState.acceptance.signature = v; });
 
   // Bridge DOM custom events
   window.addEventListener('dom:updateLineItem', (e) => {
@@ -267,15 +257,32 @@ export function addEventListeners() {
     updateSelectedBranch(index);
   });
 
-  // Expose selected actions for inline HTML handlers
-  Object.assign(window, {
-    setMode,
-    newDocument,
-    saveDocument,
-    toggleBranchModal,
-    addLineItem,
-    clearBranchForm,
-    printDocument,
-  });
-}
+  // Wire up buttons that previously relied on global handlers
+  const modeBindings = [
+    { id: 'quote-mode-btn', mode: 'quote' },
+    { id: 'invoice-mode-btn', mode: 'invoice' },
+    { id: 'letterhead-mode-btn', mode: 'letterhead' },
+  ];
+  modeBindings.forEach(({ id, mode }) => { const el = document.getElementById(id); if (el) el.addEventListener('click', () => setMode(mode)); });
 
+  const addItemBtn = document.getElementById('add-item-btn');
+  if (addItemBtn) addItemBtn.addEventListener('click', () => addLineItem());
+
+  const printBtn = document.getElementById('print-btn');
+  if (printBtn) printBtn.addEventListener('click', (e) => { e.preventDefault(); printDocument(); });
+
+  const saveBtn = document.getElementById('save-doc-btn');
+  if (saveBtn) saveBtn.addEventListener('click', (e) => { e.preventDefault(); saveDocument(); });
+
+  const newBtn = document.getElementById('new-doc-btn');
+  if (newBtn) newBtn.addEventListener('click', (e) => { e.preventDefault(); newDocument(); });
+
+  const openBranchesBtn = document.getElementById('manage-branches-btn');
+  if (openBranchesBtn) openBranchesBtn.addEventListener('click', (e) => { e.preventDefault(); toggleBranchModal(true); });
+
+  const closeBranchesBtn = document.getElementById('close-branches-modal-btn');
+  if (closeBranchesBtn) closeBranchesBtn.addEventListener('click', (e) => { e.preventDefault(); toggleBranchModal(false); });
+
+  const clearBranchBtn = document.getElementById('branch-cancel-btn');
+  if (clearBranchBtn) clearBranchBtn.addEventListener('click', (e) => { e.preventDefault(); clearBranchForm(); });
+}

@@ -2,7 +2,7 @@
 import { AppState } from './state.js';
 import { formatDate } from './utils.js';
 import { refreshDocumentPages } from './dom.js';
-import { fitsInSection, insertBeforeFooter } from './utils.js';
+import { insertBeforeFooter } from './utils.js';
 
 // Hard cap for total visible pages
 const MAX_PAGES = 10;
@@ -22,11 +22,14 @@ function restoreScroll(scrollContainer, top) {
   requestAnimationFrame(() => { scrollContainer.scrollTop = top; });
 }
 
-function fitsSamePage(footerEl, blockEl) {
-  if (!footerEl || !blockEl) return true;
+// Unified overflow check used across pagination flows
+function contentFits(sectionEl, blockEl, buffer = 4) {
+  if (!sectionEl || !blockEl) return true;
+  const footerEl = sectionEl.querySelector('.page-footer');
+  if (!footerEl) return true;
   const footerRect = footerEl.getBoundingClientRect();
   const blockRect = blockEl.getBoundingClientRect();
-  return (footerRect.top - blockRect.top) >= blockRect.height;
+  return (footerRect.top - blockRect.top) >= (blockRect.height + buffer);
 }
 
 function insertAfter(container, newNode, afterNode) {
@@ -68,7 +71,7 @@ export function paginateLetterheadContent() {
 
   let currentSection = firstSection;
   let currentContainer = firstContent;
-  function fitsCurrentSection() { return fitsInSection(currentSection, currentContainer, 4); }
+  function fitsCurrentSection() { return contentFits(currentSection, currentContainer, 4); }
 
   nodes.forEach(node => {
     currentContainer.appendChild(node);
@@ -119,7 +122,7 @@ export function paginateNotesContent() {
   insertBeforeFooter(targetSection, render);
 
   requestAnimationFrame(() => {
-    if (fitsSamePage(footer, render)) { restoreScroll(scrollContainer, savedTop); return; }
+    if (contentFits(anchorSection, render, 0)) { restoreScroll(scrollContainer, savedTop); return; }
 
     const temp = document.createElement('div');
     temp.innerHTML = html;
@@ -227,8 +230,4 @@ export function cleanupQuoteContinuationPages() {
   document.querySelectorAll('#document-preview [data-generated="items-page"], #document-preview [data-generated="signature-page"]').forEach(el => el.remove());
 }
 
-export function paginateQuoteOverflow() {
-  if (AppState.mode !== 'quote') return;
-  // This function can be expanded to ensure quote pages don't overlap footers
-  // Currently a no-op placeholder as main pagination is handled elsewhere
-}
+// Removed unused paginateQuoteOverflow; logic consolidated in other paginators

@@ -2,13 +2,22 @@
 import { AppState, getInitialState } from './state.js';
 import { ThemeSources } from './config.js';
 import { formatCurrency, formatDate, capitalize, toCssUrl, fitsInSection, insertBeforeFooter, getAvailableHeight, ASSET_RESOLVER, EmbeddedAssets, DefaultLogoPath, isFiniteNumber } from './utils.js';
-import { paginateLetterheadContent, paginateNotesContent, paginatePaymentAdvice, cleanupQuoteContinuationPages, paginateQuoteOverflow } from './pagination.js';
+import { paginateLetterheadContent, paginateNotesContent, paginatePaymentAdvice, cleanupQuoteContinuationPages } from './pagination.js';
 
 export function applyBackgroundsAndNumbering() {
   const pagesAll = document.querySelectorAll('#document-preview .document-page');
-  const bg2 = AppState.theme && AppState.theme.background ? AppState.theme.background : '';
-  const resolved = bg2 ? new URL(bg2, document.baseURI).href : '';
-  pagesAll.forEach(p => { p.style.backgroundImage = resolved ? toCssUrl(resolved) : 'none'; });
+  const bg = AppState?.theme?.background || '';
+  const resolved = bg;
+  pagesAll.forEach(p => {
+    if (resolved) {
+      p.style.backgroundImage = toCssUrl(resolved);
+      p.style.backgroundSize = 'cover';
+      p.style.backgroundRepeat = 'no-repeat';
+      p.style.backgroundPosition = 'center';
+    } else {
+      p.style.backgroundImage = 'none';
+    }
+  });
   updatePageNumbers(pagesAll);
   updatePageHeaders();
 }
@@ -21,6 +30,7 @@ function setDisplay(target, show = true) {
   const e = typeof target === 'string' ? el(target) : target;
   if (e) e.style.display = show ? '' : 'none';
 }
+function setValue(id, value) { const e = el(id); if (e) e.value = value ?? ''; }
 
 export function updatePageNumbers(pagesNodeList) {
   const nodes = Array.from(pagesNodeList || document.querySelectorAll('#document-preview .document-page'));
@@ -83,9 +93,8 @@ export function getAllThemeSources() {
   const base = (EmbeddedAssets.backgrounds && EmbeddedAssets.backgrounds.length > 0)
     ? EmbeddedAssets.backgrounds
     : ThemeSources;
-  return base.map(ASSET_RESOLVER).map(p => {
-    try { return new URL(p, document.baseURI).href; } catch { return p; }
-  });
+  // ThemeSources are already absolute (via import.meta.url); embedded assets may also be absolute/data URIs
+  return base;
 }
 
 export function buildThemesGrid() {
@@ -110,8 +119,7 @@ export function buildThemesGrid() {
 }
 
 export function selectTheme(src) {
-  try { AppState.theme = { background: new URL(src, document.baseURI).href }; }
-  catch { AppState.theme = { background: src }; }
+  AppState.theme = { background: src };
   render();
 }
 
@@ -252,30 +260,20 @@ export function renderSavedDocuments() {
 }
 
 export function updateModeButtons() {
-  const quoteBtn = document.getElementById('quote-mode-btn');
-  const invoiceBtn = document.getElementById('invoice-mode-btn');
-  const letterBtn = document.getElementById('letterhead-mode-btn');
-  if (AppState.mode === 'quote') {
-    quoteBtn.classList.add('bg-blue-600', 'text-white');
-    quoteBtn.classList.remove('bg-gray-200', 'text-gray-700');
-    invoiceBtn.classList.add('bg-gray-200', 'text-gray-700');
-    invoiceBtn.classList.remove('bg-blue-600', 'text-white');
-    if (letterBtn) { letterBtn.classList.add('bg-gray-200', 'text-gray-700'); letterBtn.classList.remove('bg-blue-600', 'text-white'); }
-  } else {
-    if (AppState.mode === 'invoice') {
-      invoiceBtn.classList.add('bg-blue-600', 'text-white');
-      invoiceBtn.classList.remove('bg-gray-200', 'text-gray-700');
-      quoteBtn.classList.add('bg-gray-200', 'text-gray-700');
-      quoteBtn.classList.remove('bg-blue-600', 'text-white');
-      if (letterBtn) { letterBtn.classList.add('bg-gray-200', 'text-gray-700'); letterBtn.classList.remove('bg-blue-600', 'text-white'); }
-    } else if (AppState.mode === 'letterhead') {
-      if (letterBtn) { letterBtn.classList.add('bg-blue-600', 'text-white'); letterBtn.classList.remove('bg-gray-200', 'text-gray-700'); }
-      invoiceBtn.classList.add('bg-gray-200', 'text-gray-700');
-      invoiceBtn.classList.remove('bg-blue-600', 'text-white');
-      quoteBtn.classList.add('bg-gray-200', 'text-gray-700');
-      quoteBtn.classList.remove('bg-blue-600', 'text-white');
-    }
-  }
+  const buttons = [
+    { id: 'quote-mode-btn', mode: 'quote' },
+    { id: 'invoice-mode-btn', mode: 'invoice' },
+    { id: 'letterhead-mode-btn', mode: 'letterhead' },
+  ];
+  buttons.forEach(({ id, mode }) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const isActive = AppState.mode === mode;
+    btn.classList.toggle('bg-blue-600', isActive);
+    btn.classList.toggle('text-white', isActive);
+    btn.classList.toggle('bg-gray-200', !isActive);
+    btn.classList.toggle('text-gray-700', !isActive);
+  });
 }
 
 export function ensureAcceptancePositioning() {
@@ -298,122 +296,64 @@ export function ensureAcceptancePositioning() {
 
 export function refreshDocumentPages() { applyBackgroundsAndNumbering(); }
 
-function createContinuationPage(generatedType, contentRole, extraClass = '') {
-  const sec = document.createElement('section');
-  sec.className = `document-page p-12 aspect-[1/1.414] ${extraClass}`.trim();
-  sec.setAttribute('data-generated', generatedType);
-  sec.innerHTML = `
-    <div class="page-header"><div></div><div></div></div>
-    <div class="text-sm" data-role="${contentRole}"></div>
-    <div class="page-footer"><span class="page-number"></span> / <span class="page-count"></span></div>`;
-  return sec;
-}
-
-function getVisiblePages() {
-  const nodes = Array.from(document.querySelectorAll('#document-preview .document-page'));
-  return nodes.filter(p => window.getComputedStyle(p).display !== 'none');
-}
-
-export function renderItemsAndPaginate() {
+export function renderItems() {
   const tbody = document.getElementById('preview-line-items');
   if (!tbody) return;
   const rows = AppState.lineItems.map(item => buildItemRowHTML(item));
-  const ROWS_PER_PAGE_FIRST = 12;
-  tbody.innerHTML = rows.slice(0, ROWS_PER_PAGE_FIRST).join('');
-
-  (function safeRemoveOldItemPages() {
-    const acceptEl = document.getElementById('acceptance-preview');
-    document.querySelectorAll('#document-preview [data-generated="items-page"]').forEach(el => {
-      if (acceptEl && el.contains(acceptEl)) return; // preserve signature page
-      el.remove();
-    });
-  })();
-
-  const container = document.getElementById('document-preview');
-  const table = document.querySelector('#document-preview table');
-  if (!container || !table) return;
-  const footer = container.querySelector('.document-page .page-footer');
-  if (!footer) return;
-
-  const ROWS_PER_PAGE_CONT = 22;
-  const MAX_PAGES = 10;
-
-  let currentSection = container.querySelector('.document-page');
-  let currentContainer = table.parentElement;
-
-  for (let i = ROWS_PER_PAGE_FIRST; i < rows.length; i += ROWS_PER_PAGE_CONT) {
-    if (getVisiblePages().length >= MAX_PAGES) break;
-    const slice = rows.slice(i, i + ROWS_PER_PAGE_CONT).join('');
-    const sec = createContinuationPage('items-page', 'items-content');
-    const role = sec.querySelector('[data-role="items-content"]');
-    role.innerHTML = `
-      <table class="w-full mb-8 text-sm">
-        <thead class="border-b-2 border-gray-800">
-          <tr>
-            <th class="text-left font-bold text-gray-600 uppercase py-2">Description</th>
-            <th class="text-right font-bold text-gray-600 uppercase py-2 w-24">Quantity</th>
-            <th class="text-right font-bold text-gray-600 uppercase py-2 w-28">Unit Price</th>
-            <th class="text-right font-bold text-gray-600 uppercase py-2 w-32">Total</th>
-          </tr>
-        </thead>
-        <tbody>${slice}</tbody>
-      </table>`;
-    container.appendChild(sec);
-    currentSection = sec;
-    currentContainer = role;
-  }
+  tbody.innerHTML = rows.join('');
 }
 
 export function render() {
-  el('client-name').value = AppState.clientInfo.name;
-  el('client-address').value = AppState.clientInfo.address;
-  el('client-email').value = AppState.clientInfo.email;
-  el('client-phone').value = AppState.clientInfo.phone;
-  el('doc-date').value = AppState.document.date;
-  el('due-date').value = AppState.document.dueDate;
+  // Inputs
+  setValue('client-name', AppState.clientInfo.name);
+  setValue('client-address', AppState.clientInfo.address);
+  setValue('client-email', AppState.clientInfo.email);
+  setValue('client-phone', AppState.clientInfo.phone);
+  setValue('doc-date', AppState.document.date);
+  setValue('due-date', AppState.document.dueDate);
+
+  // Discount/GST
   const discountForInput = getValidDiscount();
-  const discountInputEl = el('discount-value');
-  discountInputEl.value = discountForInput > 0 ? discountForInput : '';
-  if (discountForInput > 0 && typeof AppState.totals.discount !== 'number') AppState.totals.discount = discountForInput;
-  if (discountForInput === 0 && AppState.totals.discount !== null) AppState.totals.discount = null;
+  setValue('discount-value', discountForInput > 0 ? discountForInput : '');
+  AppState.totals.discount = (discountForInput > 0) ? discountForInput : null;
   const gstRateValue = isFiniteNumber(AppState.totals.gstRate) ? AppState.totals.gstRate : 0;
   AppState.totals.gstRate = gstRateValue;
-  el('gst-rate').value = gstRateValue;
-  if (el('notes-editor')) {
-    const nv = AppState.notes || '';
-    const nvHtml = /</.test(nv) ? nv : nv.replace(/\n/g, '<br>');
-    setHTML('notes-editor', nvHtml);
-  }
-  if (el('letterhead-editor')) setHTML('letterhead-editor', (AppState.letterhead?.content || ''));
-  if (el('accept-name')) el('accept-name').value = AppState.acceptance?.name || '';
-  if (el('accept-signature')) el('accept-signature').value = AppState.acceptance?.signature || '';
+  setValue('gst-rate', gstRateValue);
 
+  // Editors
+  const nv = AppState.notes || '';
+  if (el('notes-editor')) setHTML('notes-editor', /</.test(nv) ? nv : nv.replace(/\n/g, '<br>'));
+  if (el('letterhead-editor')) setHTML('letterhead-editor', AppState.letterhead?.content || '');
+  setValue('accept-name', AppState.acceptance?.name || '');
+  setValue('accept-signature', AppState.acceptance?.signature || '');
+
+  // Lists
   renderBranchDropdown();
   renderLineItems();
   renderSavedDocuments();
 
+  // Mode/UI
   updateModeUI();
   const isLetter = AppState.mode === 'letterhead';
-
   const toLabel = AppState.mode === 'quote' ? 'Quote To' : (AppState.mode === 'invoice' ? 'Bill To' : '');
-  document.getElementById('bill-to-heading').innerText = toLabel || 'Letterhead';
-  document.getElementById('preview-to-heading').innerText = toLabel ? toLabel.toUpperCase() : '';
+  setText('bill-to-heading', toLabel || 'Letterhead');
+  setText('preview-to-heading', toLabel ? toLabel.toUpperCase() : '');
 
   const previewPanel = el('document-preview');
   if (previewPanel) {
-    previewPanel.classList.toggle('invoice-background', AppState.mode === 'invoice');
-    previewPanel.classList.toggle('quote-background', AppState.mode === 'quote');
-    const bg = AppState.theme && AppState.theme.background ? AppState.theme.background : '';
-    const pages = previewPanel.querySelectorAll('.document-page');
-    pages.forEach(p => { p.style.backgroundImage = bg ? toCssUrl(bg) : 'none'; });
-    updatePageNumbers(pages);
+    const bgModes = { 'invoice-background': AppState.mode === 'invoice', 'quote-background': AppState.mode === 'quote' };
+    Object.entries(bgModes).forEach(([cls, on]) => previewPanel.classList.toggle(cls, on));
+    updatePageNumbers(previewPanel.querySelectorAll('.document-page'));
   }
 
-  // preview top info
+  // Top info
   const selectedBranch = AppState.branches[AppState.selectedBranchIndex] || {};
   const logoEl = el('preview-logo');
   const fallbackLogo = EmbeddedAssets.logo || DefaultLogoPath;
-  const logoSrc = selectedBranch.logo || fallbackLogo;
+  const logoSrc = (() => {
+    const src = selectedBranch.logo || fallbackLogo;
+    try { return src ? new URL(src, document.baseURI).href : ''; } catch { return src || ''; }
+  })();
   if (logoSrc) { logoEl.src = logoSrc; logoEl.style.display = 'block'; } else { logoEl.style.display = 'none'; }
   setText('preview-branch-name', selectedBranch.name || '');
   setText('preview-branch-address', selectedBranch.address || '');
@@ -431,54 +371,40 @@ export function render() {
   setText('preview-doc-date', formatDate(AppState.document.date));
   setText('preview-due-date', formatDate(AppState.document.dueDate));
 
-  const dueLabel = (AppState.mode === 'quote') ? 'Validity Date:' : 'Due Date:';
   setText('due-date-label', (AppState.mode === 'quote') ? 'Validity Date' : 'Due Date');
-  setText('preview-due-date-label', dueLabel);
+  setText('preview-due-date-label', (AppState.mode === 'quote') ? 'Validity Date:' : 'Due Date:');
 
-  const previewTo = el('preview-to');
-  const itemsTable = el('items-table');
-  const totalsPreview = el('totals-preview');
-  const datesRight = el('preview-dates-right');
-  const acceptPreview = el('acceptance-preview');
-  const payAdvice = el('payment-advice-preview');
-  const lhPreview = el('preview-letterhead-content');
-  setDisplay(previewTo, !isLetter);
-  const notesPage = document.getElementById('notes-page');
-  const hasNotes = (() => {
-    const nv = AppState.notes || '';
-    const text = nv.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-    return text.length > 0;
-  })();
-  setDisplay(notesPage, false);
-  setDisplay(itemsTable, !isLetter);
-  setDisplay(totalsPreview, !isLetter);
-  setDisplay(acceptPreview, (AppState.mode === 'quote'));
-  setDisplay(payAdvice, (AppState.mode === 'invoice'));
-  setDisplay(datesRight, !isLetter);
+  setDisplay('preview-to', !isLetter);
+  setDisplay('items-table', !isLetter);
+  setDisplay('totals-preview', !isLetter);
+  setDisplay('acceptance-preview', AppState.mode === 'quote');
+  setDisplay('payment-advice-preview', AppState.mode === 'invoice');
+  setDisplay('preview-dates-right', !isLetter);
+
   const titleDate = el('preview-doc-date-title');
   if (titleDate) {
-    if (isLetter) { titleDate.classList.remove('hidden'); titleDate.textContent = formatDate(AppState.document.date); }
-    else { titleDate.classList.add('hidden'); titleDate.textContent = ''; }
+    const show = isLetter;
+    titleDate.classList.toggle('hidden', !show);
+    titleDate.textContent = show ? formatDate(AppState.document.date) : '';
   }
-  const lhTo = document.getElementById('preview-letter-to');
+  const lhTo = el('preview-letter-to');
   if (lhTo) {
+    lhTo.classList.toggle('hidden', !isLetter);
     if (isLetter) {
-      lhTo.classList.remove('hidden');
-      document.getElementById('lh-client-name').innerText = AppState.clientInfo.name || '';
-      document.getElementById('lh-client-address').innerText = AppState.clientInfo.address || '';
-      document.getElementById('lh-client-email').innerText = AppState.clientInfo.email || '';
-      document.getElementById('lh-client-phone').innerText = AppState.clientInfo.phone || '';
-    } else {
-      lhTo.classList.add('hidden');
+      setText('lh-client-name', AppState.clientInfo.name || '');
+      setText('lh-client-address', AppState.clientInfo.address || '');
+      setText('lh-client-email', AppState.clientInfo.email || '');
+      setText('lh-client-phone', AppState.clientInfo.phone || '');
     }
   }
+  const lhPreview = el('preview-letterhead-content');
   if (lhPreview) {
     lhPreview.classList.toggle('hidden', !isLetter);
     lhPreview.innerHTML = AppState.letterhead?.content || '';
   }
 
   if (!isLetter) {
-    renderItemsAndPaginate();
+    renderItems();
     calculateAndRenderTotals();
   } else {
     document.querySelectorAll('#document-preview [data-generated="items-page"]').forEach(el => el.remove());
@@ -486,18 +412,14 @@ export function render() {
 
   ensureAcceptancePositioning();
 
-  const notesPreview = document.getElementById('preview-notes');
-  if (notesPreview) {
-    const nv = AppState.notes || '';
-    notesPreview.innerHTML = /</.test(nv) ? nv : nv.replace(/\n/g, '<br>');
-  }
+  const notesPreview = el('preview-notes');
+  if (notesPreview) notesPreview.innerHTML = /</.test(nv) ? nv : nv.replace(/\n/g, '<br>');
 
   // Pagination across pages
   paginateLetterheadContent();
   paginateNotesContent();
   paginatePaymentAdvice();
   cleanupQuoteContinuationPages();
-  paginateQuoteOverflow();
   refreshDocumentPages();
   updateModeButtons();
 }
