@@ -1,0 +1,27 @@
+    body { font-family: 'Inter', sans-serif; -webkit-print-color-adjust: exact; }
+    .controls-column, .preview-column { height: 100vh; overflow-y: auto; }
+    input, select, textarea { transition: border-color .2s ease-in-out, box-shadow .2s ease-in-out; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.4); }
+    /* Simple Rich Text Editor styles */
+    .rte-toolbar { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .5rem; }
+    .rte-btn { font-size: .75rem; padding: .25rem .5rem; border-radius: .375rem; border: 1px solid #d1d5db; background: #f9fafb; color: #374151; }
+    .rte-btn:hover { background: #f3f4f6; }
+    .rte-editor { min-height: 180px; padding: .75rem; border: 1px solid #d1d5db; border-radius: .375rem; background: #fff; }
+    .rte-editor:focus { outline: none; box-shadow: 0 0 0 2px rgba(59,130,246,.25); border-color: #3b82f6; }
+    /* Background classes retained but without hardcoded image; background is set dynamically */
+    #document-preview.invoice-background, #document-preview.quote-background { background-size: cover; background-position: center; background-repeat: no-repeat; }
+    .document-page { background-size: cover; background-position: center; background-repeat: no-repeat; position: relative; }
+    .page-footer { position: absolute; bottom: 8mm; left: 0; right: 0; text-align: center; font-size: 0.75rem; color: #6b7280; }
+    /* Hide small header strip above the logo */
+    .page-header { display: none; }
+    .signature-line { border-bottom: 1px solid #333; height: 2rem; }
+    @page { size: A4 portrait; margin: 0; }
+    .line-item-row:hover .delete-row-btn { opacity: 1; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .controls-column, .print-hide { display: none !important; }
+      .preview-column { width: 100% !important; height: auto !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; background-color: #fff !important; }
+      #document-preview { box-shadow: none !important; border: none !important; transform: scale(1) !important; transform-origin: top left !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+      .document-page { width: 210mm !important; min-height: 297mm !important; margin: 0 auto !important; page-break-after: always; box-shadow: none !important; }
+      .document-page:last-child { page-break-after: auto; }
+    }
