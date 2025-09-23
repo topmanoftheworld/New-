@@ -1,5 +1,5 @@
    import { ThemeSources, NotesTemplates } from './config.js';
-   import { debounce, formatCurrency, formatDate, toLocalYMD, todayLocalYMD, dateFromYMD, printDocument, capitalize } from './utils.js';
+   import { debounce, formatCurrency, formatDate, toLocalYMD, todayLocalYMD, dateFromYMD, printDocument, capitalize, toCssUrl, schedule, getAvailableHeight, fitsInSection, insertBeforeFooter } from './utils.js';
    // APP STATE
     let AppState = {};
     // File-based themes will be replaced by embedded data URIs later
@@ -13,7 +13,7 @@
         return parts;
       };
     })();
-    function toCssUrl(src) { return `url("${src}")`; }
+    // toCssUrl moved to utils.js
     // Placeholder for inlined assets (populated in a later step)
     const EmbeddedAssets = { backgrounds: [], logo: null };
     const DefaultLogoPath = 'Logo.png';
@@ -32,28 +32,16 @@
       return sec;
     }
 
-    function getAvailableHeight(sectionEl, containerEl) {
-      const footerEl = sectionEl.querySelector('.page-footer');
-      return footerEl.getBoundingClientRect().top - containerEl.getBoundingClientRect().top;
-    }
+    // getAvailableHeight moved to utils.js
 
-    function fitsInSection(sectionEl, containerEl, buffer = 4) {
-      const footerEl = sectionEl.querySelector('.page-footer');
-      const contentRect = containerEl.getBoundingClientRect();
-      return contentRect.bottom <= (footerEl.getBoundingClientRect().top - buffer);
-    }
+    // fitsInSection moved to utils.js
 
-    function schedule(fn) { requestAnimationFrame(fn); }
+    // schedule moved to utils.js
     function repaginateAndRefresh(paginateFn) { schedule(() => { paginateFn(); refreshDocumentPages(); }); }
     // Debounce helper moved to utils.js
 
     // Insert a node before a section's footer (or append if missing)
-    function insertBeforeFooter(sectionEl, node) {
-      if (!sectionEl || !node) return;
-      const footer = sectionEl.querySelector && sectionEl.querySelector('.page-footer');
-      if (!footer) { sectionEl.appendChild(node); return; }
-      sectionEl.insertBefore(node, footer);
-    }
+    // insertBeforeFooter moved to utils.js
 
     // Build a continuation page for items with a table body injected
     function createItemsContinuationPage(rowsHtml) {

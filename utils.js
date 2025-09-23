@@ -46,3 +46,29 @@ export function capitalize(str) {
   return (str || '').charAt(0).toUpperCase() + (str || '').slice(1);
 }
 
+// DOM/layout helpers
+export function toCssUrl(src) {
+  return `url("${src}")`;
+}
+
+export function schedule(fn) {
+  requestAnimationFrame(fn);
+}
+
+export function getAvailableHeight(sectionEl, containerEl) {
+  const footerEl = sectionEl.querySelector('.page-footer');
+  return footerEl.getBoundingClientRect().top - containerEl.getBoundingClientRect().top;
+}
+
+export function fitsInSection(sectionEl, containerEl, buffer = 4) {
+  const footerEl = sectionEl.querySelector('.page-footer');
+  const contentRect = containerEl.getBoundingClientRect();
+  return contentRect.bottom <= (footerEl.getBoundingClientRect().top - buffer);
+}
+
+export function insertBeforeFooter(sectionEl, node) {
+  if (!sectionEl || !node) return;
+  const footer = sectionEl.querySelector && sectionEl.querySelector('.page-footer');
+  if (!footer) { sectionEl.appendChild(node); return; }
+  sectionEl.insertBefore(node, footer);
+}
