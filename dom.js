@@ -141,7 +141,7 @@ export function renderBranchDropdown() {
 }
 
 export function renderLineItems() {
-  const container = document.getElementById('line-items');
+  const container = document.getElementById('line-items-container');
   container.innerHTML = '';
   AppState.lineItems.forEach((item, index) => {
     const row = document.createElement('div');
