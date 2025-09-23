@@ -72,3 +72,16 @@ export function insertBeforeFooter(sectionEl, node) {
   if (!footer) { sectionEl.appendChild(node); return; }
   sectionEl.insertBefore(node, footer);
 }
+
+// Asset resolving and placeholders used by DOM rendering
+export const ASSET_RESOLVER = (() => {
+  const inAssetsDir = /\/Assets\//.test(location.pathname);
+  return (p) => {
+    const normalized = inAssetsDir ? p.replace(/^Assets\//, '') : p;
+    const parts = normalized.split('/').map(encodeURIComponent).join('/');
+    return parts;
+  };
+})();
+
+export const EmbeddedAssets = { backgrounds: [], logo: null };
+export const DefaultLogoPath = 'Logo.png';
