@@ -8,14 +8,18 @@ export function applyBackgroundsAndNumbering() {
   const pagesAll = document.querySelectorAll('#document-preview .document-page');
   const bg = AppState?.theme?.background || '';
   const resolved = bg;
+  const newBgStyle = resolved ? toCssUrl(resolved) : 'none';
+
   pagesAll.forEach(p => {
-    if (resolved) {
-      p.style.backgroundImage = toCssUrl(resolved);
-      p.style.backgroundSize = 'cover';
-      p.style.backgroundRepeat = 'no-repeat';
-      p.style.backgroundPosition = 'center';
-    } else {
-      p.style.backgroundImage = 'none';
+    if (p.style.backgroundImage !== newBgStyle) {
+        if (resolved) {
+          p.style.backgroundImage = newBgStyle;
+          p.style.backgroundSize = 'cover';
+          p.style.backgroundRepeat = 'no-repeat';
+          p.style.backgroundPosition = 'center';
+        } else {
+          p.style.backgroundImage = 'none';
+        }
     }
   });
   updatePageNumbers(pagesAll);
@@ -171,23 +175,7 @@ export function renderLineItems() {
   });
 }
 
-export function renderPreviewLineItems() {
-  const tbody = document.getElementById('preview-line-items');
-  tbody.innerHTML = '';
-  AppState.lineItems.forEach(item => {
-    const qty = isFiniteNumber(item.quantity) ? item.quantity : 0;
-    const price = isFiniteNumber(item.unitPrice) ? item.unitPrice : 0;
-    const total = qty * price;
-    const row = document.createElement('tr');
-    row.className = 'border-b border-gray-200';
-    row.innerHTML = `
-      <td class="py-2 pr-2 whitespace-pre-line">${item.description || ''}</td>
-      <td class="text-right py-2 px-2">${qty || ''}</td>
-      <td class="text-right py-2 px-2">${formatCurrency(price)}</td>
-      <td class="text-right py-2 pl-2 font-medium">${formatCurrency(total)}</td>`;
-    tbody.appendChild(row);
-  });
-}
+
 
 export function getValidDiscount() {
   const raw = AppState && AppState.totals ? AppState.totals.discount : null;
@@ -322,8 +310,20 @@ export function render() {
 
   // Editors
   const nv = AppState.notes || '';
-  if (el('notes-editor')) setHTML('notes-editor', /</.test(nv) ? nv : nv.replace(/\n/g, '<br>'));
-  if (el('letterhead-editor')) setHTML('letterhead-editor', AppState.letterhead?.content || '');
+  const notesEditor = el('notes-editor');
+  if (notesEditor && document.activeElement !== notesEditor) {
+    setHTML('notes-editor', /</.test(nv) ? nv : nv.replace(/\n/g, '<br>'));
+  }
+
+  const letterheadEditor = el('letterhead-editor');
+  if (letterheadEditor && document.activeElement !== letterheadEditor) {
+    setHTML('letterhead-editor', AppState.letterhead?.content || '');
+  }
+
+  const adviceEditor = el('advice-editor');
+  if (adviceEditor && document.activeElement !== adviceEditor) {
+    setHTML('advice-editor', AppState.paymentAdvice?.content || '');
+  }
   setValue('accept-name', AppState.acceptance?.name || '');
   setValue('accept-signature', AppState.acceptance?.signature || '');
 
@@ -412,8 +412,7 @@ export function render() {
 
   ensureAcceptancePositioning();
 
-  const notesPreview = el('preview-notes');
-  if (notesPreview) notesPreview.innerHTML = /</.test(nv) ? nv : nv.replace(/\n/g, '<br>');
+  
 
   // Pagination across pages
   paginateLetterheadContent();

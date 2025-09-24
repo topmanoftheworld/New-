@@ -1,8 +1,9 @@
 // Centralized user event handlers and actions
 import { AppState, getInitialState, saveState } from './state.js';
-import { render } from './dom.js';
+import { render, refreshDocumentPages } from './dom.js';
 import { NotesTemplates } from './config.js';
 import { debounce, printDocument } from './utils.js';
+import { paginateLetterheadContent, paginateNotesContent, paginatePaymentAdvice } from './pagination.js';
 
 // Document actions
 function generateDocumentNumber() {
@@ -34,7 +35,8 @@ function saveDocument() {
   delete snapshot.global; snapshot.id = docId;
   if (existingIdx === -1) {
     snapshot.meta = { createdAt: new Date().toISOString() };
-    if (AppState.mode === 'quote') AppState.global.counters.quote++; else AppState.global.counters.invoice++;
+    if (AppState.mode === 'quote') AppState.global.counters.quote++;
+    else if (AppState.mode === 'invoice') AppState.global.counters.invoice++;
     AppState.global.savedDocuments.push(snapshot);
     AppState.id = docId;
   } else {
@@ -73,8 +75,11 @@ function removeLineItem(index) { AppState.lineItems.splice(index, 1); render(); 
 function updateLineItem(index, key, value) {
   if (!AppState.lineItems[index]) return;
   if (key === 'quantity' || key === 'unitPrice') {
-    const v = parseFloat(value);
-    AppState.lineItems[index][key] = isNaN(v) ? 0 : v;
+    let v = parseFloat(value);
+    if (isNaN(v) || v < 0) {
+      v = 0;
+    }
+    AppState.lineItems[index][key] = v;
   } else {
     AppState.lineItems[index][key] = value;
   }
@@ -201,7 +206,13 @@ export function addEventListeners() {
   bindStateInput('client-phone', v => { AppState.clientInfo.phone = v; });
   bindStateInput('doc-date', v => { AppState.document.date = v; }, 'change');
   bindStateInput('due-date', v => { AppState.document.dueDate = v; }, 'change');
-  bindStateInput('gst-rate', v => { const n = parseFloat(v); AppState.totals.gstRate = isNaN(n) ? 0 : n; });
+  bindStateInput('gst-rate', v => {
+    let n = parseFloat(v);
+    if (isNaN(n) || n < 0) {
+      n = 0;
+    }
+    AppState.totals.gstRate = n;
+  });
   bindStateInput('discount-value', v => {
     const raw = String(v).trim();
     if (raw === '') { AppState.totals.discount = null; return; }
@@ -209,14 +220,38 @@ export function addEventListeners() {
     AppState.totals.discount = isNaN(numeric) || numeric <= 0 ? null : numeric;
   });
 
-  // Debounced editors: simply re-render; pagination is handled downstream
+  // Debounced editors: now paginates directly for performance
   const notesEditor = document.getElementById('notes-editor');
-  if (notesEditor) notesEditor.addEventListener('input', debounce(() => render(), 100));
+  if (notesEditor) {
+    const debouncedUpdate = debounce(() => {
+      AppState.notes = notesEditor.innerHTML;
+      const notesPreview = document.querySelector('[data-role="notes-render"]');
+      if(notesPreview) notesPreview.innerHTML = AppState.notes;
+    }, 200);
+    notesEditor.addEventListener('input', debouncedUpdate);
+    notesEditor.addEventListener('blur', () => render());
+  }
   const advEd = document.getElementById('advice-editor');
-  if (advEd) advEd.addEventListener('input', debounce(() => render(), 200));
+  if (advEd) {
+    const debouncedUpdate = debounce(() => {
+      AppState.paymentAdvice.content = advEd.innerHTML;
+      const advicePreview = document.getElementById('preview-advice-content');
+      if(advicePreview) advicePreview.innerHTML = AppState.paymentAdvice.content;
+    }, 200);
+    advEd.addEventListener('input', debouncedUpdate);
+    advEd.addEventListener('blur', () => render());
+  }
 
   const lhContent = document.getElementById('letterhead-editor');
-  if (lhContent) lhContent.addEventListener('input', e => { AppState.letterhead.content = e.target.innerHTML; render(); });
+  if (lhContent) {
+    const debouncedUpdate = debounce(() => {
+      AppState.letterhead.content = lhContent.innerHTML;
+      const letterheadPreview = document.getElementById('preview-letterhead-content');
+      if(letterheadPreview) letterheadPreview.innerHTML = AppState.letterhead.content;
+    }, 200);
+    lhContent.addEventListener('input', debouncedUpdate);
+    lhContent.addEventListener('blur', () => render());
+  }
   bindRteToolbar('notes-toolbar');
   bindRteToolbar('letterhead-toolbar');
   bindRteToolbar('advice-toolbar');

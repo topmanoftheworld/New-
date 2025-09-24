@@ -102,34 +102,43 @@ export function paginateNotesContent() {
   const savedTop = scrollContainer ? scrollContainer.scrollTop : 0;
   if (!container || !accept) return;
 
-  // Cleanup previous render and continuation pages
-  container.querySelectorAll('[data-role="notes-render"], [data-generated="notes-page-cont"]').forEach(el => el.remove());
-
-  const editor = document.getElementById('notes-editor');
-  const html = editor ? editor.innerHTML : '';
+  const html = AppState.notes || '';
   const plain = html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
   const hasNotes = plain.length > 0;
-  if (!hasNotes) return;
+
+  let render = container.querySelector('[data-role="notes-render"]');
+  container.querySelectorAll('[data-generated="notes-page-cont"]').forEach(el => el.remove());
+
+  if (!hasNotes) {
+    if (render) render.remove();
+    return;
+  }
 
   const targetSection = accept.closest('.document-page');
-  const footer = targetSection?.querySelector('.page-footer');
-  if (!targetSection || !footer) return;
+  if (!render) {
+    if (!targetSection) return;
+    render = document.createElement('div');
+    render.setAttribute('data-role', 'notes-render');
+    render.className = 'text-sm text-gray-700';
+    insertBeforeFooter(targetSection, render);
+  } else {
+    // Ensure the render element is on the correct page
+    if (targetSection && render.parentElement !== targetSection) {
+        insertBeforeFooter(targetSection, render);
+    }
+  }
 
-  const render = document.createElement('div');
-  render.setAttribute('data-role', 'notes-render');
-  render.className = 'text-sm text-gray-700';
   render.innerHTML = html;
-  insertBeforeFooter(targetSection, render);
 
   requestAnimationFrame(() => {
-    if (contentFits(anchorSection, render, 0)) { restoreScroll(scrollContainer, savedTop); return; }
+    if (contentFits(render.closest('.document-page'), render, 0)) { restoreScroll(scrollContainer, savedTop); return; }
 
     const temp = document.createElement('div');
     temp.innerHTML = html;
     const nodes = Array.from(temp.childNodes);
 
     render.innerHTML = '';
-    let currentSection = targetSection;
+    let currentSection = render.closest('.document-page');
     let currentContainer = render;
 
     function createNotesPageAfter(section) {
@@ -171,16 +180,24 @@ export function paginateNotesContent() {
 }
 
 export function paginatePaymentAdvice() {
-  if (AppState.mode !== 'invoice') return;
   const container = getPreviewContainer();
-  const scrollContainer = getScrollContainer(container);
-  const savedTop = scrollContainer ? scrollContainer.scrollTop : 0;
   if (!container) return;
 
-  const due = AppState?.document?.dueDate ? formatDate(AppState.document.dueDate) : '';
-  const html = due
-    ? `<p><strong>Payment Advice:</strong> This invoice is due on <strong>${due}</strong>.<br/>Please make payment to <strong>Tomar Contracting Limited</strong>, Account No: <strong>38-9024-0318399-00</strong>.</p>`
-    : '';
+  const adviceEls = container.querySelectorAll('[data-role="advice-render"], [data-generated="advice-page-cont"]');
+  if (AppState.mode !== 'invoice') {
+    adviceEls.forEach(el => el.remove());
+    return;
+  }
+
+  const scrollContainer = getScrollContainer(container);
+  const savedTop = scrollContainer ? scrollContainer.scrollTop : 0;
+
+  const html = AppState.paymentAdvice?.content || '';
+  const plain = html.replace(/<[^>]*>/g, '').trim();
+  if (!plain) {
+      container.querySelectorAll('[data-role="advice-render"], [data-generated="advice-page-cont"]').forEach(el => el.remove());
+      return;
+  }
 
   const signatureEl = document.getElementById('acceptance-preview');
   container.querySelectorAll('[data-role="advice-render"], [data-generated="advice-page-cont"]').forEach(el => {
@@ -212,7 +229,7 @@ export function paginatePaymentAdvice() {
   insertBeforeFooter(anchorSection, render);
 
   requestAnimationFrame(() => {
-    if (fitsSamePage(footer, render)) { restoreScroll(scrollContainer, savedTop); return; }
+    if (contentFits(anchorSection, render)) { restoreScroll(scrollContainer, savedTop); return; }
 
     if (getVisiblePages().length >= MAX_PAGES) return;
     const sec = createContinuationPage('advice-page-cont', 'advice-content');
