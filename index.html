@@ -28,7 +28,7 @@
     <div class="controls-column w-full md:w-1/2 lg:w-2/5 xl:w-1/3 bg-white p-6 border-r border-gray-200 print-hide">
       <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold text-gray-900">Tomar Admin</h1>
-        <button onclick="printDocument()" class="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition duration-200">
+        <button id="print-btn" class="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition duration-200">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
           Print / Save PDF
         </button>
@@ -38,16 +38,16 @@
       <div class="mb-6">
         <label class="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
         <div class="flex rounded-lg shadow-sm">
-          <button id="quote-mode-btn" onclick="setMode('quote')" class="flex-1 py-2 px-3 rounded-l-lg focus:outline-none transition duration-200">Quote</button>
-          <button id="invoice-mode-btn" onclick="setMode('invoice')" class="flex-1 py-2 px-3 focus:outline-none transition duration-200">Invoice</button>
-          <button id="letterhead-mode-btn" onclick="setMode('letterhead')" class="flex-1 py-2 px-3 rounded-r-lg focus:outline-none transition duration-200">Letterhead</button>
+          <button id="quote-mode-btn" class="flex-1 py-2 px-3 rounded-l-lg focus:outline-none transition duration-200">Quote</button>
+          <button id="invoice-mode-btn" class="flex-1 py-2 px-3 focus:outline-none transition duration-200">Invoice</button>
+          <button id="letterhead-mode-btn" class="flex-1 py-2 px-3 rounded-r-lg focus:outline-none transition duration-200">Letterhead</button>
         </div>
       </div>
 
       <!-- New/Save/Load Document -->
       <div class="grid grid-cols-2 gap-4 mb-6">
-        <button onclick="saveDocument()" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition duration-200">Save Document</button>
-        <button onclick="newDocument()" class="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition duration-200">New Document</button>
+        <button id="save-doc-btn" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition duration-200">Save Document</button>
+        <button id="new-doc-btn" class="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition duration-200">New Document</button>
       </div>
 
       <!-- Saved Documents -->
@@ -61,8 +61,8 @@
         <h3 class="text-lg font-semibold mb-3 text-gray-800">From</h3>
         <label class="block text-sm font-medium text-gray-700">Branch</label>
         <div class="flex items-center mt-1">
-          <select id="branch-select" onchange="updateSelectedBranch(this.value)" class="w-full p-2 border border-gray-300 rounded-md shadow-sm"></select>
-          <button onclick="toggleBranchModal(true)" class="ml-2 p-2 rounded-md hover:bg-gray-200 focus:outline-none" aria-label="Manage branches">
+          <select id="branch-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm"></select>
+          <button id="manage-branches-btn" class="ml-2 p-2 rounded-md hover:bg-gray-200 focus:outline-none" aria-label="Manage branches">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
           </button>
         </div>
@@ -338,7 +338,7 @@
     <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
       <div class="flex justify-between items-center p-4 border-b">
         <h2 class="text-xl font-bold">Manage Branches</h2>
-        <button onclick="toggleBranchModal(false)" class="p-2 rounded-full hover:bg-gray-200" aria-label="Close branches modal">
+        <button id="close-branches-modal-btn" class="p-2 rounded-full hover:bg-gray-200" aria-label="Close branches modal">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
@@ -360,7 +360,7 @@
               <input type="text" id="branch-gst" placeholder="GST Number" class="w-full p-2 border border-gray-300 rounded-md" />
               <textarea id="branch-logo" placeholder="Logo URL or Base64" class="w-full p-2 border border-gray-300 rounded-md" rows="2"></textarea>
               <div class="flex justify-end space-x-2">
-                <button type="button" onclick="clearBranchForm()" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400">Cancel</button>
+                <button type="button" id="branch-cancel-btn" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400">Cancel</button>
                 <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Save Branch</button>
               </div>
             </form>
@@ -369,6 +369,6 @@
       </div>
     </div>
   </div>
-  <script src="script.js" defer></script>
+  <script src="main.js" type="module"></script>
 </body>
 </html>

@@ -1,4 +1,3 @@
-<style>
     body { font-family: 'Inter', sans-serif; -webkit-print-color-adjust: exact; }
     .controls-column, .preview-column { height: 100vh; overflow-y: auto; }
     input, select, textarea { transition: border-color .2s ease-in-out, box-shadow .2s ease-in-out; }
@@ -26,4 +25,3 @@
       .document-page { width: 210mm !important; min-height: 297mm !important; margin: 0 auto !important; page-break-after: always; box-shadow: none !important; }
       .document-page:last-child { page-break-after: auto; }
     }
-  </style>
