@@ -1,6 +1,6 @@
 // Centralized user event handlers and actions
 import { AppState, getInitialState, saveState } from './state.js';
-import { render, refreshDocumentPages } from './dom.js';
+import { render } from './dom.js';
 import { NotesTemplates } from './config.js';
 import { debounce, printDocument } from './utils.js';
 import { paginateLetterheadContent, paginateNotesContent, paginatePaymentAdvice } from './pagination.js';
@@ -21,10 +21,8 @@ function setMode(mode, isInitial = false) {
 function newDocument() {
   if (!confirm('Start a new document? Unsaved changes will be lost.')) return;
   const globalData = JSON.parse(JSON.stringify(AppState.global));
-  AppState = getInitialState();
-  AppState.global = globalData;
+  Object.assign(AppState, getInitialState(), { global: globalData });
   generateDocumentNumber();
-  // Re-run initial UI setup
   render();
 }
 
@@ -32,7 +30,8 @@ function saveDocument() {
   const docId = AppState.id || Date.now().toString();
   const existingIdx = AppState.global.savedDocuments.findIndex(d => d.id === docId);
   const snapshot = JSON.parse(JSON.stringify(AppState));
-  delete snapshot.global; snapshot.id = docId;
+  delete snapshot.global; 
+  snapshot.id = docId;
   if (existingIdx === -1) {
     snapshot.meta = { createdAt: new Date().toISOString() };
     if (AppState.mode === 'quote') AppState.global.counters.quote++;
@@ -65,20 +64,21 @@ function deleteDocument(id) {
 }
 
 // Line items
-function addLineItem(shouldRender = true) {
+function addLineItem() {
   AppState.lineItems.push({ description: '', quantity: 1, unitPrice: 0 });
-  if (shouldRender) render();
+  render();
 }
 
-function removeLineItem(index) { AppState.lineItems.splice(index, 1); render(); }
+function removeLineItem(index) {
+  AppState.lineItems.splice(index, 1);
+  render();
+}
 
 function updateLineItem(index, key, value) {
   if (!AppState.lineItems[index]) return;
   if (key === 'quantity' || key === 'unitPrice') {
     let v = parseFloat(value);
-    if (isNaN(v) || v < 0) {
-      v = 0;
-    }
+    if (isNaN(v) || v < 0) v = 0;
     AppState.lineItems[index][key] = v;
   } else {
     AppState.lineItems[index][key] = value;
@@ -87,12 +87,20 @@ function updateLineItem(index, key, value) {
 }
 
 // Branch management
-function updateSelectedBranch(index) { AppState.selectedBranchIndex = parseInt(index); render(); }
+function updateSelectedBranch(index) {
+  AppState.selectedBranchIndex = parseInt(index);
+  render();
+}
 
 function toggleBranchModal(show) {
   const modal = document.getElementById('branch-modal');
-  if (show) { renderModalBranchList(); clearBranchForm(); modal.classList.remove('hidden'); }
-  else { modal.classList.add('hidden'); }
+  if (show) {
+    renderModalBranchList();
+    clearBranchForm();
+    modal.classList.remove('hidden');
+  } else {
+    modal.classList.add('hidden');
+  }
 }
 
 function renderModalBranchList() {
@@ -178,14 +186,10 @@ function bindRteToolbar(toolbarId) {
     const targetId = btn.getAttribute('data-target');
     const editor = targetId ? document.getElementById(targetId) : null;
     if (editor) { editor.focus(); }
-    const isClear = btn.getAttribute('data-action') === 'clear' || cmd === 'clear';
-    if (isClear && editor) {
+    if (btn.getAttribute('data-action') === 'clear' && editor) {
       editor.innerHTML = '';
-      if (targetId === 'notes-editor') {
-        AppState.notes = '';
-      } else if (targetId === 'letterhead-editor') {
-        AppState.letterhead.content = '';
-      }
+      if (targetId === 'notes-editor') AppState.notes = '';
+      else if (targetId === 'letterhead-editor') AppState.letterhead.content = '';
       render();
       return;
     }
@@ -196,128 +200,76 @@ function bindRteToolbar(toolbarId) {
 
 export function addEventListeners() {
   const on = (id, event, handler) => { const el = document.getElementById(id); if (el) el.addEventListener(event, handler); };
-  const bindStateInput = (id, setter, event = 'input', transform = v => v) => {
-    on(id, event, e => { setter(transform(e.target.value), e); render(); });
+  const bindStateInput = (id, setter) => {
+    on(id, 'input', e => { setter(e.target.value); render(); });
   };
 
-  bindStateInput('client-name', v => { AppState.clientInfo.name = v; });
-  bindStateInput('client-address', v => { AppState.clientInfo.address = v; });
-  bindStateInput('client-email', v => { AppState.clientInfo.email = v; });
-  bindStateInput('client-phone', v => { AppState.clientInfo.phone = v; });
-  bindStateInput('doc-date', v => { AppState.document.date = v; }, 'change');
-  bindStateInput('due-date', v => { AppState.document.dueDate = v; }, 'change');
-  bindStateInput('gst-rate', v => {
-    let n = parseFloat(v);
-    if (isNaN(n) || n < 0) {
-      n = 0;
+  bindStateInput('client-name', v => AppState.clientInfo.name = v);
+  bindStateInput('client-address', v => AppState.clientInfo.address = v);
+  bindStateInput('client-email', v => AppState.clientInfo.email = v);
+  bindStateInput('client-phone', v => AppState.clientInfo.phone = v);
+  on('doc-date', 'change', e => { AppState.document.date = e.target.value; render(); });
+  on('due-date', 'change', e => { AppState.document.dueDate = e.target.value; render(); });
+  on('gst-rate', 'input', e => {
+    let n = parseFloat(e.target.value);
+    AppState.totals.gstRate = (isNaN(n) || n < 0) ? 0 : n;
+    render();
+  });
+  on('discount-value', 'input', e => {
+    let n = parseFloat(e.target.value.replace(/[^0-9.]/g, ''));
+    AppState.totals.discount = (isNaN(n) || n <= 0) ? null : n;
+    render();
+  });
+
+  // Editors
+  const setupEditor = (editorId, stateKey, paginationFunc) => {
+    const editor = document.getElementById(editorId);
+    if (editor) {
+      const updateState = () => AppState[stateKey] = editor.innerHTML;
+      editor.addEventListener('input', debounce(() => {
+        updateState();
+        paginationFunc();
+      }, 200));
+      editor.addEventListener('blur', () => {
+        updateState();
+        render();
+      });
     }
-    AppState.totals.gstRate = n;
-  });
-  bindStateInput('discount-value', v => {
-    const raw = String(v).trim();
-    if (raw === '') { AppState.totals.discount = null; return; }
-    const numeric = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
-    AppState.totals.discount = isNaN(numeric) || numeric <= 0 ? null : numeric;
-  });
+  };
+  setupEditor('notes-editor', 'notes', paginateNotesContent);
+  setupEditor('letterhead-editor', 'letterhead', paginateLetterheadContent);
+  setupEditor('advice-editor', 'paymentAdvice', paginatePaymentAdvice);
 
-  // Debounced editors: now paginates directly for performance
-  const notesEditor = document.getElementById('notes-editor');
-  if (notesEditor) {
-    const debouncedUpdate = debounce(() => {
-      AppState.notes = notesEditor.innerHTML;
-      const notesPreview = document.querySelector('[data-role="notes-render"]');
-      if(notesPreview) notesPreview.innerHTML = AppState.notes;
-    }, 200);
-    notesEditor.addEventListener('input', debouncedUpdate);
-    notesEditor.addEventListener('blur', () => render());
-  }
-  const advEd = document.getElementById('advice-editor');
-  if (advEd) {
-    const debouncedUpdate = debounce(() => {
-      AppState.paymentAdvice.content = advEd.innerHTML;
-      const advicePreview = document.getElementById('preview-advice-content');
-      if(advicePreview) advicePreview.innerHTML = AppState.paymentAdvice.content;
-    }, 200);
-    advEd.addEventListener('input', debouncedUpdate);
-    advEd.addEventListener('blur', () => render());
-  }
-
-  const lhContent = document.getElementById('letterhead-editor');
-  if (lhContent) {
-    const debouncedUpdate = debounce(() => {
-      AppState.letterhead.content = lhContent.innerHTML;
-      const letterheadPreview = document.getElementById('preview-letterhead-content');
-      if(letterheadPreview) letterheadPreview.innerHTML = AppState.letterhead.content;
-    }, 200);
-    lhContent.addEventListener('input', debouncedUpdate);
-    lhContent.addEventListener('blur', () => render());
-  }
   bindRteToolbar('notes-toolbar');
   bindRteToolbar('letterhead-toolbar');
   bindRteToolbar('advice-toolbar');
 
-  const notesTpl = document.getElementById('notes-template');
-  if (notesTpl) notesTpl.addEventListener('change', e => {
-    const key = e.target.value;
-    if (!key) return;
-    const html = (NotesTemplates[key] || '').trim();
+  on('notes-template', 'change', e => {
+    const html = (NotesTemplates[e.target.value] || '').trim();
     AppState.notes = html;
-    const ed = document.getElementById('notes-editor');
-    if (ed) ed.innerHTML = html;
+    document.getElementById('notes-editor').innerHTML = html;
     render();
   });
 
-  bindStateInput('accept-name', v => { AppState.acceptance.name = v; });
-  bindStateInput('accept-signature', v => { AppState.acceptance.signature = v; });
+  bindStateInput('accept-name', v => AppState.acceptance.name = v);
+  bindStateInput('accept-signature', v => AppState.acceptance.signature = v);
 
-  // Bridge DOM custom events
-  window.addEventListener('dom:updateLineItem', (e) => {
-    const { index, key, value } = e.detail || {};
-    updateLineItem(index, key, value);
-  });
-  window.addEventListener('dom:removeLineItem', (e) => {
-    const { index } = e.detail || {};
-    removeLineItem(index);
-  });
-  window.addEventListener('dom:loadDocument', (e) => {
-    const { id } = e.detail || {};
-    loadDocument(id);
-  });
-  window.addEventListener('dom:deleteDocument', (e) => {
-    const { id } = e.detail || {};
-    deleteDocument(id);
-  });
-  window.addEventListener('dom:updateSelectedBranch', (e) => {
-    const { index } = e.detail || {};
-    updateSelectedBranch(index);
-  });
+  // Global events
+  window.addEventListener('dom:updateLineItem', e => updateLineItem(e.detail.index, e.detail.key, e.detail.value));
+  window.addEventListener('dom:removeLineItem', e => removeLineItem(e.detail.index));
+  window.addEventListener('dom:loadDocument', e => loadDocument(e.detail.id));
+  window.addEventListener('dom:deleteDocument', e => deleteDocument(e.detail.id));
+  window.addEventListener('dom:updateSelectedBranch', e => updateSelectedBranch(e.detail.index));
 
-  // Wire up buttons that previously relied on global handlers
-  const modeBindings = [
-    { id: 'quote-mode-btn', mode: 'quote' },
-    { id: 'invoice-mode-btn', mode: 'invoice' },
-    { id: 'letterhead-mode-btn', mode: 'letterhead' },
-  ];
-  modeBindings.forEach(({ id, mode }) => { const el = document.getElementById(id); if (el) el.addEventListener('click', () => setMode(mode)); });
-
-  const addItemBtn = document.getElementById('add-item-btn');
-  if (addItemBtn) addItemBtn.addEventListener('click', () => addLineItem());
-
-  const printBtn = document.getElementById('print-btn');
-  if (printBtn) printBtn.addEventListener('click', (e) => { e.preventDefault(); printDocument(); });
-
-  const saveBtn = document.getElementById('save-doc-btn');
-  if (saveBtn) saveBtn.addEventListener('click', (e) => { e.preventDefault(); saveDocument(); });
-
-  const newBtn = document.getElementById('new-doc-btn');
-  if (newBtn) newBtn.addEventListener('click', (e) => { e.preventDefault(); newDocument(); });
-
-  const openBranchesBtn = document.getElementById('manage-branches-btn');
-  if (openBranchesBtn) openBranchesBtn.addEventListener('click', (e) => { e.preventDefault(); toggleBranchModal(true); });
-
-  const closeBranchesBtn = document.getElementById('close-branches-modal-btn');
-  if (closeBranchesBtn) closeBranchesBtn.addEventListener('click', (e) => { e.preventDefault(); toggleBranchModal(false); });
-
-  const clearBranchBtn = document.getElementById('branch-cancel-btn');
-  if (clearBranchBtn) clearBranchBtn.addEventListener('click', (e) => { e.preventDefault(); clearBranchForm(); });
+  // Buttons
+  on('quote-mode-btn', 'click', () => setMode('quote'));
+  on('invoice-mode-btn', 'click', () => setMode('invoice'));
+  on('letterhead-mode-btn', 'click', () => setMode('letterhead'));
+  on('add-item-btn', 'click', addLineItem);
+  on('print-btn', 'click', e => { e.preventDefault(); printDocument(); });
+  on('save-doc-btn', 'click', e => { e.preventDefault(); saveDocument(); });
+  on('new-doc-btn', 'click', e => { e.preventDefault(); newDocument(); });
+  on('manage-branches-btn', 'click', e => { e.preventDefault(); toggleBranchModal(true); });
+  on('close-branches-modal-btn', 'click', e => { e.preventDefault(); toggleBranchModal(false); });
+  on('branch-cancel-btn', 'click', e => { e.preventDefault(); clearBranchForm(); });
 }
