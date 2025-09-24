@@ -94,15 +94,14 @@ export const ASSET_RESOLVER = (() => {
   const ABSOLUTE_PROTO = /^(?:[a-z]+:)?\/\//i; // http://, https://, //host
   return (p) => {
     if (!p) return p;
-    const s = String(p);
-    // Leave absolute URLs and data/blob URIs untouched
+    const s = String(p).trim();
+    // Leave absolute URLs and data/blob/file URIs untouched
     if (ABSOLUTE_PROTO.test(s) || s.startsWith('data:') || s.startsWith('blob:') || s.startsWith('file:')) {
       return s;
     }
-    // Normalize simple assets path and safely encode segments
+    // Normalize to a safe, document-relative path (no leading slash, no ../ prefix)
     const normalized = s.replace(/^\.\//, '').replace(/^\//, '');
-    const path = `../${normalized}`;
-    return path.split('/').map(encodeURIComponent).join('/');
+    return normalized.split('/').map(encodeURIComponent).join('/');
   };
 })();
 

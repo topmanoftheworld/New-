@@ -1,7 +1,7 @@
 // DOM rendering and UI update helpers
 import { AppState, getInitialState } from './state.js';
 import { ThemeSources } from './config.js';
-import { formatCurrency, formatDate, capitalize, toCssUrl, isFiniteNumber, DefaultLogoPath, EmbeddedAssets } from './utils.js';
+import { formatCurrency, formatDate, capitalize, toCssUrl, isFiniteNumber, DefaultLogoPath, EmbeddedAssets, ASSET_RESOLVER } from './utils.js';
 import { paginateLetterheadContent, paginateNotesContent, paginatePaymentAdvice, cleanup } from './pagination.js';
 
 export function applyBackgroundsAndNumbering() {
@@ -234,7 +234,13 @@ export function render() {
   setDisplay('items-table', !isLetter);
   setDisplay('totals-preview', !isLetter);
   setDisplay('acceptance-preview', AppState.mode === 'quote');
-  setDisplay('payment-advice-preview', AppState.mode === 'invoice');
+  // Show Payment Advice only on invoice mode; handle Tailwind 'hidden' class
+  const adviceSection = el('payment-advice-preview');
+  if (adviceSection) {
+    const showAdvice = (AppState.mode === 'invoice');
+    adviceSection.classList.toggle('hidden', !showAdvice);
+    if (showAdvice) adviceSection.style.display = '';
+  }
   setDisplay('preview-dates-right', !isLetter);
 
   // Letterhead specific
@@ -284,3 +290,7 @@ export function render() {
   refreshDocumentPages();
 }
 
+// Ensure pagination module can import this and pages get updated
+export function refreshDocumentPages() {
+  applyBackgroundsAndNumbering();
+}
