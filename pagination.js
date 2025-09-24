@@ -25,18 +25,21 @@ function contentFits(contentElement) {
     return contentElement.getBoundingClientRect().bottom < footer.getBoundingClientRect().top;
 }
 
-function paginate(contentElement, sourceHTML) {
+function paginate(contentElement, sourceHTML, continuationType) {
     const container = getPreviewContainer();
     contentElement.innerHTML = sourceHTML;
 
     let currentPage = contentElement.closest('.document-page');
     let currentContent = contentElement;
 
+    // Clear old continuation pages
+    container.querySelectorAll(`[data-generated="${continuationType}"]`).forEach(el => el.remove());
+
     while (!contentFits(currentContent)) {
         let nextPage = currentPage.nextElementSibling;
-        if (!nextPage || !nextPage.classList.contains('document-page')) {
-            nextPage = createContinuationPage('content-overflow');
-            container.appendChild(nextPage);
+        if (!nextPage || nextPage.dataset.generated !== continuationType) {
+            nextPage = createContinuationPage(continuationType);
+            currentPage.after(nextPage);
         }
 
         const nextPageContent = document.createElement('div');
@@ -53,29 +56,38 @@ function paginate(contentElement, sourceHTML) {
 
 export function paginateLetterheadContent() {
     const contentElement = document.getElementById('preview-letterhead-content');
-    if (contentElement) {
-        paginate(contentElement, AppState.letterhead?.content || '');
+    if (contentElement && AppState.mode === 'letterhead') {
+        paginate(contentElement, AppState.letterhead?.content || '', 'letterhead-page');
+    } else if (contentElement) {
+        contentElement.innerHTML = '';
     }
 }
 
 export function paginateNotesContent() {
     const contentElement = document.getElementById('preview-notes');
-    if (contentElement) {
-        paginate(contentElement, AppState.notes || '');
+    if (contentElement && AppState.mode !== 'letterhead') {
+        paginate(contentElement, AppState.notes || '', 'notes-page-cont');
+    } else if (contentElement) {
+        contentElement.innerHTML = '';
     }
 }
 
 export function paginatePaymentAdvice() {
     const contentElement = document.getElementById('preview-advice-content');
-    if (contentElement) {
-        paginate(contentElement, AppState.paymentAdvice?.content || '');
+    if (contentElement && AppState.mode === 'invoice') {
+        paginate(contentElement, AppState.paymentAdvice?.content || '', 'advice-page-cont');
+    } else if (contentElement) {
+        contentElement.innerHTML = '';
     }
 }
 
 export function cleanup() {
     const container = getPreviewContainer();
     container.querySelectorAll('[data-generated]').forEach(el => el.remove());
-    document.getElementById('preview-letterhead-content').innerHTML = '';
-    document.getElementById('preview-notes').innerHTML = '';
-    document.getElementById('preview-advice-content').innerHTML = '';
+    const letterhead = document.getElementById('preview-letterhead-content');
+    if(letterhead) letterhead.innerHTML = '';
+    const notes = document.getElementById('preview-notes');
+    if(notes) notes.innerHTML = '';
+    const advice = document.getElementById('preview-advice-content');
+    if(advice) advice.innerHTML = '';
 }
