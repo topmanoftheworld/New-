@@ -101,12 +101,13 @@ export const ASSET_RESOLVER = (() => {
     }
     // Normalize simple assets path and safely encode segments
     const normalized = s.replace(/^\.\//, '').replace(/^\//, '');
-    return normalized.split('/').map(encodeURIComponent).join('/');
+    const path = `../${normalized}`;
+    return path.split('/').map(encodeURIComponent).join('/');
   };
 })();
 
 export const EmbeddedAssets = { backgrounds: [], logo: null };
 // Resolve default logo relative to this module for reliable URL resolution
 export const DefaultLogoPath = (() => {
-  try { return new URL('./Logo.png', import.meta.url).href; } catch { return 'Logo.png'; }
+  try { return new URL('../Assets/Logo.png', import.meta.url).href; } catch { return 'Assets/Logo.png'; }
 })();

@@ -209,7 +209,7 @@ export function render() {
   const selectedBranch = AppState.branches[AppState.selectedBranchIndex] || {};
   const logoEl = el('preview-logo');
   const logoSrc = selectedBranch.logo || EmbeddedAssets.logo || DefaultLogoPath;
-  if (logoSrc) { logoEl.src = logoSrc; logoEl.style.display = 'block'; } else { logoEl.style.display = 'none'; }
+  if (logoSrc) { logoEl.src = ASSET_RESOLVER(logoSrc); logoEl.style.display = 'block'; } else { logoEl.style.display = 'none'; }
   
   setText('preview-branch-name', selectedBranch.name || '');
   setText('preview-branch-address', selectedBranch.address || '');
