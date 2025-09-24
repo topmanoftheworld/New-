@@ -29,7 +29,7 @@ function safeParseJSON(s) {
 export function getInitialState() {
   return {
     id: null,
-    mode: 'quote',
+    mode: 'invoice',
     branches: [
       { id: 1, name: 'Tomar Contracting - Hamilton', address: '59 Boundary Road\nClaudelands, Hamilton 3214', email: 'info@tomarcontracting.co.nz', phone: '0800 TOMAR C (866272)', website: 'hamilton.tomarcontracting.co.nz', gst: '137-684-446', logo: 'Logo.png' },
       { id: 2, name: 'Tomar Contracting - Rotorua', address: '68 Alison Street\nMangakakahi, Rotorua 3015', email: 'info@tomarcontracting.co.nz', phone: '0800 TOMAR C (866272)', website: 'rotorua.tomarcontracting.co.nz', gst: '137-684-446', logo: 'Logo.png' }
@@ -59,7 +59,7 @@ export function migrateAssetPath(p) {
   // Deduplicate accidental double-prefix
   p = p.replace(/^Assets\/Assets\//, 'Assets/');
   // Collapse multiple consecutive slashes
-  p = p.replace(/\/+/, '/');
+  p = p.replace(/\x2F+/g, '/');
   // Trim stray spaces around filename
   p = p.replace(/\s+\.png$/i, '.png').trim();
   // Rename old file with spaces to normalized one

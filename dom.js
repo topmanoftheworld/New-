@@ -1,28 +1,27 @@
 // DOM rendering and UI update helpers
 import { AppState, getInitialState } from './state.js';
 import { ThemeSources } from './config.js';
-import { formatCurrency, formatDate, capitalize, toCssUrl, fitsInSection, insertBeforeFooter, getAvailableHeight, ASSET_RESOLVER, EmbeddedAssets, DefaultLogoPath, isFiniteNumber } from './utils.js';
-import { paginateLetterheadContent, paginateNotesContent, paginatePaymentAdvice, cleanupQuoteContinuationPages } from './pagination.js';
+import { formatCurrency, formatDate, capitalize, toCssUrl, isFiniteNumber, DefaultLogoPath, EmbeddedAssets, ASSET_RESOLVER } from './utils.js';
+import { paginateLetterheadContent, paginateNotesContent, paginatePaymentAdvice, cleanup } from './pagination.js';
 
 export function applyBackgroundsAndNumbering() {
   const pagesAll = document.querySelectorAll('#document-preview .document-page');
   const bg = AppState?.theme?.background || '';
-  const resolved = bg;
+  const newBgStyle = bg ? toCssUrl(bg) : 'none';
+
   pagesAll.forEach(p => {
-    if (resolved) {
-      p.style.backgroundImage = toCssUrl(resolved);
+    if (p.style.backgroundImage !== newBgStyle) {
+      p.style.backgroundImage = newBgStyle;
       p.style.backgroundSize = 'cover';
       p.style.backgroundRepeat = 'no-repeat';
       p.style.backgroundPosition = 'center';
-    } else {
-      p.style.backgroundImage = 'none';
     }
   });
   updatePageNumbers(pagesAll);
   updatePageHeaders();
 }
 
-// Small DOM helpers to reduce repetition and guard nulls
+// Small DOM helpers
 function el(id) { return document.getElementById(id); }
 function setText(id, value) { const e = el(id); if (e) e.innerText = value ?? ''; }
 function setHTML(id, value) { const e = el(id); if (e) e.innerHTML = value ?? ''; }
@@ -60,67 +59,32 @@ export function updateModeUI() {
   const isLetter = AppState.mode === 'letterhead';
   const isInvoice = AppState.mode === 'invoice';
   const isQuote = AppState.mode === 'quote';
-  const itemsBlock = document.getElementById('items-block');
-  const totalsBlock = document.getElementById('totals-settings');
-  const acceptBlock = document.getElementById('acceptance-controls');
-  const lhControls = document.getElementById('letterhead-content-controls');
-  const notesControls = document.getElementById('notes-controls');
-  const adviceControls = document.getElementById('advice-controls');
-  const dueDateWrap = document.getElementById('due-date-wrap');
-  if (itemsBlock) itemsBlock.style.display = isLetter ? 'none' : '';
-  if (totalsBlock) totalsBlock.style.display = isLetter ? 'none' : '';
-  if (acceptBlock) acceptBlock.style.display = isQuote ? '' : 'none';
-  if (lhControls) lhControls.classList.toggle('hidden', !isLetter);
-  if (notesControls) notesControls.style.display = isQuote ? '' : 'none';
-  if (adviceControls) adviceControls.classList.toggle('hidden', !isInvoice);
-  if (dueDateWrap) dueDateWrap.style.display = isLetter ? 'none' : '';
-}
-
-export function buildItemRowHTML(item) {
-  const qty = isFiniteNumber(item.quantity) ? item.quantity : 0;
-  const price = isFiniteNumber(item.unitPrice) ? item.unitPrice : 0;
-  const total = qty * price;
-  return `
-    <tr class="border-b border-gray-200">
-      <td class="py-2 pr-2 whitespace-pre-line">${item.description || ''}</td>
-      <td class="text-right py-2 px-2">${qty || ''}</td>
-      <td class="text-right py-2 px-2">${formatCurrency(price)}</td>
-      <td class="text-right py-2 pl-2 font-medium">${formatCurrency(total)}</td>
-    </tr>`;
-}
-
-export function getAllThemeSources() {
-  const base = (EmbeddedAssets.backgrounds && EmbeddedAssets.backgrounds.length > 0)
-    ? EmbeddedAssets.backgrounds
-    : ThemeSources;
-  // ThemeSources are already absolute (via import.meta.url); embedded assets may also be absolute/data URIs
-  return base;
+  setDisplay('items-block', !isLetter);
+  setDisplay('totals-settings', !isLetter);
+  setDisplay('acceptance-controls', isQuote);
+  el('letterhead-content-controls')?.classList.toggle('hidden', !isLetter);
+  setDisplay('notes-controls', isQuote);
+  el('advice-controls')?.classList.toggle('hidden', !isInvoice);
+  setDisplay('due-date-wrap', !isLetter);
 }
 
 export function buildThemesGrid() {
   const grid = document.getElementById('themes-grid');
   if (!grid) return;
   grid.innerHTML = '';
-  const sources = getAllThemeSources();
+  const sources = (EmbeddedAssets.backgrounds && EmbeddedAssets.backgrounds.length > 0)
+    ? EmbeddedAssets.backgrounds
+    : ThemeSources;
   sources.forEach((src, index) => {
     const wrap = document.createElement('button');
     wrap.type = 'button';
     wrap.className = 'relative border rounded overflow-hidden aspect-square group focus:outline-none focus:ring-2 focus:ring-blue-500';
     wrap.title = `Theme ${index + 1}`;
-    wrap.addEventListener('click', () => selectTheme(src));
-    wrap.innerHTML = `
-      <img src="${src}" alt="Theme ${index + 1}" class="w-full h-full object-cover" />
-      <span class="absolute inset-0 ring-2 ring-transparent group-hover:ring-blue-400"></span>`;
+    wrap.addEventListener('click', () => { AppState.theme = { background: src }; render(); });
+    wrap.innerHTML = `<img src="${src}" alt="Theme ${index + 1}" class="w-full h-full object-cover" /><span class="absolute inset-0 ring-2 ring-transparent group-hover:ring-blue-400"></span>`;
     grid.appendChild(wrap);
   });
-
-  const clearBtn = document.getElementById('clear-theme-btn');
-  if (clearBtn) clearBtn.onclick = () => { AppState.theme = { background: '' }; render(); };
-}
-
-export function selectTheme(src) {
-  AppState.theme = { background: src };
-  render();
+  el('clear-theme-btn').onclick = () => { AppState.theme = { background: '' }; render(); };
 }
 
 export function renderBranchDropdown() {
@@ -134,10 +98,6 @@ export function renderBranchDropdown() {
     if (i === AppState.selectedBranchIndex) opt.selected = true;
     select.appendChild(opt);
   });
-  select.onchange = (e) => {
-    const index = parseInt(e.target.value);
-    window.dispatchEvent(new CustomEvent('dom:updateSelectedBranch', { detail: { index } }));
-  };
 }
 
 export function renderLineItems() {
@@ -161,7 +121,6 @@ export function renderLineItems() {
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
       </div>`;
-
     const inputs = row.querySelectorAll('textarea, input');
     inputs[0].addEventListener('input', e => window.dispatchEvent(new CustomEvent('dom:updateLineItem', { detail: { index, key: 'description', value: e.target.value } })));
     inputs[1].addEventListener('input', e => window.dispatchEvent(new CustomEvent('dom:updateLineItem', { detail: { index, key: 'quantity', value: parseFloat(e.target.value) } })));
@@ -171,64 +130,6 @@ export function renderLineItems() {
   });
 }
 
-export function renderPreviewLineItems() {
-  const tbody = document.getElementById('preview-line-items');
-  tbody.innerHTML = '';
-  AppState.lineItems.forEach(item => {
-    const qty = isFiniteNumber(item.quantity) ? item.quantity : 0;
-    const price = isFiniteNumber(item.unitPrice) ? item.unitPrice : 0;
-    const total = qty * price;
-    const row = document.createElement('tr');
-    row.className = 'border-b border-gray-200';
-    row.innerHTML = `
-      <td class="py-2 pr-2 whitespace-pre-line">${item.description || ''}</td>
-      <td class="text-right py-2 px-2">${qty || ''}</td>
-      <td class="text-right py-2 px-2">${formatCurrency(price)}</td>
-      <td class="text-right py-2 pl-2 font-medium">${formatCurrency(total)}</td>`;
-    tbody.appendChild(row);
-  });
-}
-
-export function getValidDiscount() {
-  const raw = AppState && AppState.totals ? AppState.totals.discount : null;
-  const numeric = typeof raw === 'number' ? raw : parseFloat(raw);
-  if (!isFiniteNumber(numeric) || numeric <= 0) return 0;
-  return numeric;
-}
-
-export function calculateAndRenderTotals() {
-  const subtotal = AppState.lineItems.reduce((acc, item) => {
-    const q = isFiniteNumber(item.quantity) ? item.quantity : 0;
-    const p = isFiniteNumber(item.unitPrice) ? item.unitPrice : 0;
-    return acc + q * p;
-  }, 0);
-  const discount = getValidDiscount();
-  const gstRate = isFiniteNumber(AppState.totals.gstRate) ? AppState.totals.gstRate : 0;
-  const taxableAmount = Math.max(0, subtotal - discount);
-  const gstAmount = taxableAmount * (gstRate / 100);
-  const grandTotal = taxableAmount + gstAmount;
-  const discountRow = document.getElementById('preview-discount-row');
-  const discountValueEl = document.getElementById('preview-discount');
-  if (discountRow && discountValueEl) {
-    if (discount > 0) {
-      discountRow.classList.remove('hidden');
-      discountValueEl.innerText = formatCurrency(discount);
-    } else {
-      discountRow.classList.add('hidden');
-      discountValueEl.innerText = '';
-    }
-  }
-  const gstRateDisplay = isFiniteNumber(gstRate) ? gstRate.toFixed(2).replace(/\.?0+$/, '') : '0';
-  const gstRateEl = document.getElementById('preview-gst-rate');
-  const gstAmountEl = document.getElementById('preview-gst-amount');
-  if (gstRateEl) gstRateEl.innerText = gstRateDisplay;
-  if (gstAmountEl) gstAmountEl.innerText = formatCurrency(gstAmount);
-  const subtotalEl = document.getElementById('preview-subtotal');
-  const totalEl = document.getElementById('preview-grand-total');
-  if (subtotalEl) subtotalEl.innerText = formatCurrency(subtotal);
-  if (totalEl) totalEl.innerText = formatCurrency(grandTotal);
-}
-
 export function renderSavedDocuments() {
   const listContainer = document.getElementById('saved-documents-list');
   listContainer.innerHTML = '';
@@ -236,11 +137,7 @@ export function renderSavedDocuments() {
     listContainer.innerHTML = `<p class="text-sm text-gray-500 text-center p-2">No saved documents.</p>`;
     return;
   }
-  const sorted = [...AppState.global.savedDocuments].sort((a, b) => {
-    const ad = a.meta?.createdAt || a.document?.date || '';
-    const bd = b.meta?.createdAt || b.document?.date || '';
-    return new Date(bd) - new Date(ad);
-  });
+  const sorted = [...AppState.global.savedDocuments].sort((a, b) => new Date(b.meta?.createdAt || b.document.date) - new Date(a.meta?.createdAt || a.document.date));
   sorted.forEach(doc => {
     const item = document.createElement('div');
     item.className = 'flex justify-between items-center bg-white p-2 rounded border mb-2';
@@ -260,50 +157,21 @@ export function renderSavedDocuments() {
 }
 
 export function updateModeButtons() {
-  const buttons = [
-    { id: 'quote-mode-btn', mode: 'quote' },
-    { id: 'invoice-mode-btn', mode: 'invoice' },
-    { id: 'letterhead-mode-btn', mode: 'letterhead' },
-  ];
-  buttons.forEach(({ id, mode }) => {
-    const btn = document.getElementById(id);
-    if (!btn) return;
-    const isActive = AppState.mode === mode;
-    btn.classList.toggle('bg-blue-600', isActive);
-    btn.classList.toggle('text-white', isActive);
-    btn.classList.toggle('bg-gray-200', !isActive);
-    btn.classList.toggle('text-gray-700', !isActive);
+  ['quote', 'invoice', 'letterhead'].forEach(mode => {
+    const btn = document.getElementById(`${mode}-mode-btn`);
+    if (btn) {
+      const isActive = AppState.mode === mode;
+      btn.classList.toggle('bg-blue-600', isActive);
+      btn.classList.toggle('text-white', isActive);
+      btn.classList.toggle('bg-gray-200', !isActive);
+      btn.classList.toggle('text-gray-700', !isActive);
+    }
   });
 }
 
-export function ensureAcceptancePositioning() {
-  const signature = document.getElementById('acceptance-preview');
-  if (!signature) return;
-  const section = signature.closest('.document-page');
-  if (!section) return;
-  const itemsTable = section.querySelector('table');
-  if (itemsTable) {
-    const available = getAvailableHeight(section, itemsTable);
-    if (available < 40) {
-      // Move signature to next page to avoid overlap
-      const next = section.nextElementSibling || null;
-      if (next && next.classList.contains('document-page')) {
-        next.insertBefore(signature, next.querySelector('.page-footer'));
-      }
-    }
-  }
-}
-
-export function refreshDocumentPages() { applyBackgroundsAndNumbering(); }
-
-export function renderItems() {
-  const tbody = document.getElementById('preview-line-items');
-  if (!tbody) return;
-  const rows = AppState.lineItems.map(item => buildItemRowHTML(item));
-  tbody.innerHTML = rows.join('');
-}
-
 export function render() {
+  cleanup();
+
   // Inputs
   setValue('client-name', AppState.clientInfo.name);
   setValue('client-address', AppState.clientInfo.address);
@@ -312,18 +180,14 @@ export function render() {
   setValue('doc-date', AppState.document.date);
   setValue('due-date', AppState.document.dueDate);
 
-  // Discount/GST
-  const discountForInput = getValidDiscount();
-  setValue('discount-value', discountForInput > 0 ? discountForInput : '');
-  AppState.totals.discount = (discountForInput > 0) ? discountForInput : null;
-  const gstRateValue = isFiniteNumber(AppState.totals.gstRate) ? AppState.totals.gstRate : 0;
-  AppState.totals.gstRate = gstRateValue;
-  setValue('gst-rate', gstRateValue);
+  const discount = AppState.totals.discount > 0 ? AppState.totals.discount : '';
+  setValue('discount-value', discount);
+  setValue('gst-rate', AppState.totals.gstRate);
 
   // Editors
-  const nv = AppState.notes || '';
-  if (el('notes-editor')) setHTML('notes-editor', /</.test(nv) ? nv : nv.replace(/\n/g, '<br>'));
-  if (el('letterhead-editor')) setHTML('letterhead-editor', AppState.letterhead?.content || '');
+  setHTML('notes-editor', AppState.notes || '');
+  setHTML('letterhead-editor', AppState.letterhead?.content || '');
+  setHTML('advice-editor', AppState.paymentAdvice?.content || '');
   setValue('accept-name', AppState.acceptance?.name || '');
   setValue('accept-signature', AppState.acceptance?.signature || '');
 
@@ -332,29 +196,21 @@ export function render() {
   renderLineItems();
   renderSavedDocuments();
 
-  // Mode/UI
+  // UI
   updateModeUI();
+  updateModeButtons();
+
+  // Preview
   const isLetter = AppState.mode === 'letterhead';
   const toLabel = AppState.mode === 'quote' ? 'Quote To' : (AppState.mode === 'invoice' ? 'Bill To' : '');
   setText('bill-to-heading', toLabel || 'Letterhead');
   setText('preview-to-heading', toLabel ? toLabel.toUpperCase() : '');
 
-  const previewPanel = el('document-preview');
-  if (previewPanel) {
-    const bgModes = { 'invoice-background': AppState.mode === 'invoice', 'quote-background': AppState.mode === 'quote' };
-    Object.entries(bgModes).forEach(([cls, on]) => previewPanel.classList.toggle(cls, on));
-    updatePageNumbers(previewPanel.querySelectorAll('.document-page'));
-  }
-
-  // Top info
   const selectedBranch = AppState.branches[AppState.selectedBranchIndex] || {};
   const logoEl = el('preview-logo');
-  const fallbackLogo = EmbeddedAssets.logo || DefaultLogoPath;
-  const logoSrc = (() => {
-    const src = selectedBranch.logo || fallbackLogo;
-    try { return src ? new URL(src, document.baseURI).href : ''; } catch { return src || ''; }
-  })();
-  if (logoSrc) { logoEl.src = logoSrc; logoEl.style.display = 'block'; } else { logoEl.style.display = 'none'; }
+  const logoSrc = selectedBranch.logo || EmbeddedAssets.logo || DefaultLogoPath;
+  if (logoSrc) { logoEl.src = ASSET_RESOLVER(logoSrc); logoEl.style.display = 'block'; } else { logoEl.style.display = 'none'; }
+  
   setText('preview-branch-name', selectedBranch.name || '');
   setText('preview-branch-address', selectedBranch.address || '');
   setText('preview-branch-phone', selectedBranch.phone ? `P: ${selectedBranch.phone}` : '');
@@ -378,48 +234,63 @@ export function render() {
   setDisplay('items-table', !isLetter);
   setDisplay('totals-preview', !isLetter);
   setDisplay('acceptance-preview', AppState.mode === 'quote');
-  setDisplay('payment-advice-preview', AppState.mode === 'invoice');
+  // Show Payment Advice only on invoice mode; handle Tailwind 'hidden' class
+  const adviceSection = el('payment-advice-preview');
+  if (adviceSection) {
+    const showAdvice = (AppState.mode === 'invoice');
+    adviceSection.classList.toggle('hidden', !showAdvice);
+    if (showAdvice) adviceSection.style.display = '';
+  }
   setDisplay('preview-dates-right', !isLetter);
 
+  // Letterhead specific
   const titleDate = el('preview-doc-date-title');
-  if (titleDate) {
-    const show = isLetter;
-    titleDate.classList.toggle('hidden', !show);
-    titleDate.textContent = show ? formatDate(AppState.document.date) : '';
-  }
+  if (titleDate) titleDate.classList.toggle('hidden', !isLetter);
+  if (isLetter) titleDate.textContent = formatDate(AppState.document.date);
   const lhTo = el('preview-letter-to');
   if (lhTo) {
     lhTo.classList.toggle('hidden', !isLetter);
     if (isLetter) {
       setText('lh-client-name', AppState.clientInfo.name || '');
       setText('lh-client-address', AppState.clientInfo.address || '');
-      setText('lh-client-email', AppState.clientInfo.email || '');
-      setText('lh-client-phone', AppState.clientInfo.phone || '');
     }
   }
-  const lhPreview = el('preview-letterhead-content');
-  if (lhPreview) {
-    lhPreview.classList.toggle('hidden', !isLetter);
-    lhPreview.innerHTML = AppState.letterhead?.content || '';
+
+  // Totals
+  const subtotal = AppState.lineItems.reduce((acc, item) => acc + (item.quantity || 0) * (item.unitPrice || 0), 0);
+  const discountAmount = AppState.totals.discount || 0;
+  const taxableAmount = Math.max(0, subtotal - discountAmount);
+  const gstAmount = taxableAmount * (AppState.totals.gstRate / 100);
+  const grandTotal = taxableAmount + gstAmount;
+  
+  setText('preview-subtotal', formatCurrency(subtotal));
+  setDisplay('preview-discount-row', discountAmount > 0);
+  setText('preview-discount', formatCurrency(discountAmount));
+  setText('preview-gst-rate', AppState.totals.gstRate);
+  setText('preview-gst-amount', formatCurrency(gstAmount));
+  setText('preview-grand-total', formatCurrency(grandTotal));
+
+  // Items table
+  const tbody = document.getElementById('preview-line-items');
+  if (tbody) {
+    tbody.innerHTML = AppState.lineItems.map(item => `
+      <tr class="border-b border-gray-200">
+        <td class="py-2 pr-2 whitespace-pre-line">${item.description || ''}</td>
+        <td class="text-right py-2 px-2">${item.quantity || ''}</td>
+        <td class="text-right py-2 px-2">${formatCurrency(item.unitPrice)}</td>
+        <td class="text-right py-2 pl-2 font-medium">${formatCurrency((item.quantity || 0) * (item.unitPrice || 0))}</td>
+      </tr>`).join('');
   }
 
-  if (!isLetter) {
-    renderItems();
-    calculateAndRenderTotals();
-  } else {
-    document.querySelectorAll('#document-preview [data-generated="items-page"]').forEach(el => el.remove());
-  }
-
-  ensureAcceptancePositioning();
-
-  const notesPreview = el('preview-notes');
-  if (notesPreview) notesPreview.innerHTML = /</.test(nv) ? nv : nv.replace(/\n/g, '<br>');
-
-  // Pagination across pages
+  // Paginate all content
   paginateLetterheadContent();
   paginateNotesContent();
   paginatePaymentAdvice();
-  cleanupQuoteContinuationPages();
+  
   refreshDocumentPages();
-  updateModeButtons();
+}
+
+// Ensure pagination module can import this and pages get updated
+export function refreshDocumentPages() {
+  applyBackgroundsAndNumbering();
 }

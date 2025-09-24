@@ -94,12 +94,12 @@ export const ASSET_RESOLVER = (() => {
   const ABSOLUTE_PROTO = /^(?:[a-z]+:)?\/\//i; // http://, https://, //host
   return (p) => {
     if (!p) return p;
-    const s = String(p);
-    // Leave absolute URLs and data/blob URIs untouched
+    const s = String(p).trim();
+    // Leave absolute URLs and data/blob/file URIs untouched
     if (ABSOLUTE_PROTO.test(s) || s.startsWith('data:') || s.startsWith('blob:') || s.startsWith('file:')) {
       return s;
     }
-    // Normalize simple assets path and safely encode segments
+    // Normalize to a safe, document-relative path (no leading slash, no ../ prefix)
     const normalized = s.replace(/^\.\//, '').replace(/^\//, '');
     return normalized.split('/').map(encodeURIComponent).join('/');
   };
@@ -108,5 +108,5 @@ export const ASSET_RESOLVER = (() => {
 export const EmbeddedAssets = { backgrounds: [], logo: null };
 // Resolve default logo relative to this module for reliable URL resolution
 export const DefaultLogoPath = (() => {
-  try { return new URL('./Logo.png', import.meta.url).href; } catch { return 'Logo.png'; }
+  try { return new URL('../Assets/Logo.png', import.meta.url).href; } catch { return 'Assets/Logo.png'; }
 })();
