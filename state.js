@@ -43,7 +43,7 @@ export function getInitialState() {
     acceptance: { name: '', date: '', signature: '' },
     paymentAdvice: { content: '<p><strong>Account details</strong> — Tomar Contracting Limited<br/>38-9024-0318399-00</p>' },
     theme: { background: '' },
-    letterhead: { content: '' },
+    letterhead: { content: '', images: [] },
     global: { savedDocuments: [], counters: { quote: 1001, invoice: 1001 } }
   };
 }
@@ -97,6 +97,12 @@ export function loadState() {
         AppState.global.counters.invoice = Number(parsedGlobal.counters.invoice) || AppState.global.counters.invoice;
       }
     }
+  }
+  if (!AppState.letterhead || typeof AppState.letterhead !== 'object') {
+    AppState.letterhead = { content: '', images: [] };
+  }
+  if (!Array.isArray(AppState.letterhead.images)) {
+    AppState.letterhead.images = [];
   }
   // Ensure any stale asset paths are corrected before using them
   migrateAssetPaths();

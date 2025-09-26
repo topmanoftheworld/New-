@@ -56,6 +56,33 @@
         <div id="saved-documents-list" class="max-h-48 overflow-y-auto bg-gray-50 p-2 rounded-lg border"></div>
       </div>
 
+      <!-- AI Assistant -->
+      <div id="ai-assistant" class="mb-6 p-4 bg-white rounded-lg border shadow-sm hidden">
+        <div class="flex flex-col md:flex-row md:items-end md:space-x-4 space-y-4 md:space-y-0">
+          <div class="flex-1 min-w-0">
+            <label for="ai-assistant-context" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Content Area</label>
+            <select id="ai-assistant-context" data-ai="context-select" class="mt-1 w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+          </div>
+          <div class="flex-1 min-w-0 md:w-80">
+            <label for="ai-assistant-api-key" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">AI API Key</label>
+            <input type="text" id="ai-assistant-api-key" data-ai="api-key" placeholder="Paste Gemini or ChatGPT API key" class="mt-1 w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+        <p data-ai="context-hint" class="mt-2 text-xs text-gray-500 hidden"></p>
+        <form data-ai="prompt-form" class="mt-4 flex flex-col md:flex-row gap-3">
+          <input type="text" data-ai="prompt-input" class="flex-1 p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ask the AI about your document…" aria-label="AI prompt input" />
+          <div class="flex items-center gap-2">
+            <button type="submit" data-ai="prompt-submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">Generate</button>
+            <div class="relative">
+              <button type="button" data-ai="quick-trigger" class="px-4 py-2 border border-gray-300 text-sm font-semibold rounded-md bg-white text-gray-700 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-haspopup="true" aria-expanded="false">AI Actions ✨</button>
+              <div data-ai="quick-menu" class="hidden absolute right-0 mt-2 w-64 rounded-lg border border-gray-200 bg-white shadow-xl z-30 overflow-hidden"></div>
+            </div>
+          </div>
+        </form>
+        <p data-ai="status" class="mt-3 text-sm text-blue-600 hidden"></p>
+        <p data-ai="error" class="mt-2 text-sm text-red-600 hidden"></p>
+      </div>
+
       <!-- From / Company Info -->
       <div class="mb-6 p-4 bg-gray-50 rounded-lg border">
         <h3 class="text-lg font-semibold mb-3 text-gray-800">From</h3>
@@ -114,6 +141,17 @@
           <button type="button" class="rte-btn" data-cmd="clear" data-action="clear" data-target="letterhead-editor">Clear</button>
         </div>
         <div id="letterhead-editor" class="rte-editor" contenteditable="true" aria-label="Letterhead content editor"></div>
+        <div class="mt-4 space-y-2">
+          <label class="block text-sm font-medium text-gray-700" for="letterhead-image-upload">Letterhead Images</label>
+          <input type="file" id="letterhead-image-upload" accept="image/*" class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+          <div class="flex items-center space-x-2">
+            <select id="letterhead-image-select" class="flex-1 p-2 border border-gray-300 rounded-md text-sm" disabled>
+              <option value="">— Select an image —</option>
+            </select>
+            <button id="letterhead-insert-image-btn" class="bg-blue-600 text-white px-3 py-2 rounded-md text-sm disabled:opacity-50" type="button" disabled>Insert Image</button>
+          </div>
+          <p class="text-xs text-gray-500">Upload an image to insert it at the cursor within the letterhead editor. You can continue typing before or after the image.</p>
+        </div>
       </div>
 
       <!-- Totals Settings -->
@@ -147,21 +185,6 @@
           <button type="button" class="rte-btn" data-cmd="clear" data-action="clear" data-target="advice-editor">Clear</button>
         </div>
         <div id="advice-editor" class="rte-editor" contenteditable="true" aria-label="Payment advice editor"></div>
-      </div>
-
-      <!-- Client Acceptance (controls) -->
-      <div id="acceptance-controls" class="mb-6 p-4 bg-gray-50 rounded-lg border">
-        <h3 class="text-lg font-semibold mb-3 text-gray-800">Client Acceptance</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Name</label>
-            <input type="text" id="accept-name" class="mt-1 w-full p-2 border border-gray-300 rounded-md" placeholder="Client full name" />
-          </div>
-          <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700">Signature Image (URL or Base64)</label>
-            <textarea id="accept-signature" rows="2" class="mt-1 w-full p-2 border border-gray-300 rounded-md" placeholder="Optional: paste a data URI or image URL"></textarea>
-          </div>
-        </div>
       </div>
 
       <!-- Notes / Terms (Quote mode only) -->

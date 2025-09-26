@@ -27,6 +27,9 @@ function contentFits(contentElement) {
 
 function paginate(contentElement, sourceHTML, continuationType) {
     const container = getPreviewContainer();
+    const containerScrollTop = container ? container.scrollTop : null;
+    const contentScrollTop = contentElement ? contentElement.scrollTop : null;
+    const pageScrollY = (typeof window !== 'undefined' && typeof window.scrollY === 'number') ? window.scrollY : null;
     contentElement.innerHTML = sourceHTML;
 
     let currentPage = contentElement.closest('.document-page');
@@ -52,6 +55,31 @@ function paginate(contentElement, sourceHTML, continuationType) {
         currentPage = nextPage;
         currentContent = nextPageContent;
     }
+
+    refreshDocumentPages();
+
+    const restoreScroll = () => {
+        if (contentElement && typeof contentScrollTop === 'number') {
+            contentElement.scrollTop = contentScrollTop;
+        }
+        if (container && typeof containerScrollTop === 'number') {
+            container.scrollTop = containerScrollTop;
+        }
+        if (typeof window !== 'undefined' && typeof pageScrollY === 'number') {
+            window.scrollTo({ left: window.scrollX || 0, top: pageScrollY });
+        }
+    };
+
+    if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+            restoreScroll();
+            if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(restoreScroll);
+            }
+        });
+    } else {
+        restoreScroll();
+    }
 }
 
 export function paginateLetterheadContent() {
@@ -65,7 +93,7 @@ export function paginateLetterheadContent() {
 
 export function paginateNotesContent() {
     const contentElement = document.getElementById('preview-notes');
-    if (contentElement && AppState.mode !== 'letterhead') {
+    if (contentElement && AppState.mode === 'quote') {
         paginate(contentElement, AppState.notes || '', 'notes-page-cont');
     } else if (contentElement) {
         contentElement.innerHTML = '';

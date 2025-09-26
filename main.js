@@ -2,6 +2,7 @@ import { todayLocalYMD, dateFromYMD, toLocalYMD } from './utils.js';
 import { render, buildThemesGrid } from './dom.js';
 import { AppState, loadState } from './state.js';
 import { addEventListeners } from './events.js';
+import { initAIAssistant, updateAIAssistantOnRender } from './aiAssistant.js';
 
 function initApp() {
   if (!AppState.document.date) {
@@ -27,6 +28,8 @@ function initApp() {
   addEventListeners();
   buildThemesGrid();
   render();
+  initAIAssistant();
+  updateAIAssistantOnRender();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -48,4 +51,3 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>`;
   }
 });
-

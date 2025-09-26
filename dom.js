@@ -3,6 +3,7 @@ import { AppState, getInitialState } from './state.js';
 import { ThemeSources } from './config.js';
 import { formatCurrency, formatDate, capitalize, toCssUrl, isFiniteNumber, DefaultLogoPath, EmbeddedAssets, ASSET_RESOLVER } from './utils.js';
 import { paginateLetterheadContent, paginateNotesContent, paginatePaymentAdvice, cleanup } from './pagination.js';
+import { updateAIAssistantOnRender } from './aiAssistant.js';
 
 export function applyBackgroundsAndNumbering() {
   const pagesAll = document.querySelectorAll('#document-preview .document-page');
@@ -30,6 +31,35 @@ function setDisplay(target, show = true) {
   if (e) e.style.display = show ? '' : 'none';
 }
 function setValue(id, value) { const e = el(id); if (e) e.value = value ?? ''; }
+
+function renderLetterheadImagePicker() {
+  const select = document.getElementById('letterhead-image-select');
+  const insertBtn = document.getElementById('letterhead-insert-image-btn');
+  if (!select) return;
+
+  const previousValue = select.value;
+  select.innerHTML = '<option value="">— Select an image —</option>';
+
+  const images = (AppState.letterhead && Array.isArray(AppState.letterhead.images))
+    ? AppState.letterhead.images
+    : [];
+
+  images.forEach((image, index) => {
+    const opt = document.createElement('option');
+    opt.value = String(image.id ?? index);
+    opt.textContent = image.name || `Image ${index + 1}`;
+    opt.dataset.src = image.src;
+    select.appendChild(opt);
+  });
+
+  if (images.some(image => String(image.id ?? images.indexOf(image)) === previousValue)) {
+    select.value = previousValue;
+  }
+
+  const hasImages = images.length > 0;
+  select.disabled = !hasImages;
+  if (insertBtn) insertBtn.disabled = !hasImages;
+}
 
 export function updatePageNumbers(pagesNodeList) {
   const nodes = Array.from(pagesNodeList || document.querySelectorAll('#document-preview .document-page'));
@@ -61,7 +91,6 @@ export function updateModeUI() {
   const isQuote = AppState.mode === 'quote';
   setDisplay('items-block', !isLetter);
   setDisplay('totals-settings', !isLetter);
-  setDisplay('acceptance-controls', isQuote);
   el('letterhead-content-controls')?.classList.toggle('hidden', !isLetter);
   setDisplay('notes-controls', isQuote);
   el('advice-controls')?.classList.toggle('hidden', !isInvoice);
@@ -102,6 +131,24 @@ export function renderBranchDropdown() {
 
 export function renderLineItems() {
   const container = document.getElementById('line-items-container');
+  if (!container) return;
+
+  // Preserve focus within the line items list so typing doesn't lose the caret
+  const activeEl = document.activeElement;
+  let focusRestore = null;
+  if (activeEl && container.contains(activeEl)) {
+    const { itemIndex, field } = activeEl.dataset || {};
+    if (itemIndex !== undefined && field) {
+      const hasSelection = typeof activeEl.selectionStart === 'number' && typeof activeEl.selectionEnd === 'number';
+      focusRestore = {
+        itemIndex,
+        field,
+        selectionStart: hasSelection ? activeEl.selectionStart : null,
+        selectionEnd: hasSelection ? activeEl.selectionEnd : null,
+      };
+    }
+  }
+
   container.innerHTML = '';
   AppState.lineItems.forEach((item, index) => {
     const row = document.createElement('div');
@@ -122,12 +169,38 @@ export function renderLineItems() {
         </button>
       </div>`;
     const inputs = row.querySelectorAll('textarea, input');
-    inputs[0].addEventListener('input', e => window.dispatchEvent(new CustomEvent('dom:updateLineItem', { detail: { index, key: 'description', value: e.target.value } })));
-    inputs[1].addEventListener('input', e => window.dispatchEvent(new CustomEvent('dom:updateLineItem', { detail: { index, key: 'quantity', value: parseFloat(e.target.value) } })));
-    inputs[2].addEventListener('input', e => window.dispatchEvent(new CustomEvent('dom:updateLineItem', { detail: { index, key: 'unitPrice', value: parseFloat(e.target.value) } })));
+    const [descInput, qtyInput, priceInput] = inputs;
+
+    descInput.dataset.itemIndex = index;
+    descInput.dataset.field = 'description';
+    qtyInput.dataset.itemIndex = index;
+    qtyInput.dataset.field = 'quantity';
+    priceInput.dataset.itemIndex = index;
+    priceInput.dataset.field = 'unitPrice';
+
+    descInput.addEventListener('input', e => window.dispatchEvent(new CustomEvent('dom:updateLineItem', { detail: { index, key: 'description', value: e.target.value } })));
+    qtyInput.addEventListener('input', e => window.dispatchEvent(new CustomEvent('dom:updateLineItem', { detail: { index, key: 'quantity', value: parseFloat(e.target.value) } })));
+    priceInput.addEventListener('input', e => window.dispatchEvent(new CustomEvent('dom:updateLineItem', { detail: { index, key: 'unitPrice', value: parseFloat(e.target.value) } })));
     row.querySelector('button').addEventListener('click', () => window.dispatchEvent(new CustomEvent('dom:removeLineItem', { detail: { index } })));
     container.appendChild(row);
   });
+
+  if (focusRestore) {
+    const target = container.querySelector(`[data-item-index="${focusRestore.itemIndex}"][data-field="${focusRestore.field}"]`);
+    if (target) {
+      target.focus({ preventScroll: true });
+      if (
+        typeof focusRestore.selectionStart === 'number' &&
+        typeof focusRestore.selectionEnd === 'number' &&
+        typeof target.setSelectionRange === 'function'
+      ) {
+        const len = target.value ? target.value.length : 0;
+        const start = Math.min(focusRestore.selectionStart, len);
+        const end = Math.min(focusRestore.selectionEnd, len);
+        try { target.setSelectionRange(start, end); } catch { /* number inputs may throw */ }
+      }
+    }
+  }
 }
 
 export function renderSavedDocuments() {
@@ -188,13 +261,13 @@ export function render() {
   setHTML('notes-editor', AppState.notes || '');
   setHTML('letterhead-editor', AppState.letterhead?.content || '');
   setHTML('advice-editor', AppState.paymentAdvice?.content || '');
-  setValue('accept-name', AppState.acceptance?.name || '');
-  setValue('accept-signature', AppState.acceptance?.signature || '');
+  renderLetterheadImagePicker();
 
   // Lists
   renderBranchDropdown();
   renderLineItems();
   renderSavedDocuments();
+  updateAIAssistantOnRender();
 
   // UI
   updateModeUI();
@@ -202,7 +275,8 @@ export function render() {
 
   // Preview
   const isLetter = AppState.mode === 'letterhead';
-  const toLabel = AppState.mode === 'quote' ? 'Quote To' : (AppState.mode === 'invoice' ? 'Bill To' : '');
+  const isQuote = AppState.mode === 'quote';
+  const toLabel = isQuote ? 'Quote To' : (AppState.mode === 'invoice' ? 'Bill To' : '');
   setText('bill-to-heading', toLabel || 'Letterhead');
   setText('preview-to-heading', toLabel ? toLabel.toUpperCase() : '');
 
@@ -227,13 +301,37 @@ export function render() {
   setText('preview-doc-date', formatDate(AppState.document.date));
   setText('preview-due-date', formatDate(AppState.document.dueDate));
 
+  const letterheadContentEl = el('preview-letterhead-content');
+  if (letterheadContentEl) {
+    letterheadContentEl.classList.toggle('hidden', !isLetter);
+  }
+
+  const acceptanceName = AppState.clientInfo.name || '';
+  if (!AppState.acceptance || typeof AppState.acceptance !== 'object') {
+    AppState.acceptance = { name: acceptanceName, date: '', signature: '' };
+  } else {
+    AppState.acceptance.name = acceptanceName;
+  }
+  setText('preview-accept-name', acceptanceName);
+  const signatureEl = el('preview-accept-signature');
+  if (signatureEl) {
+    const signatureSrc = AppState.acceptance?.signature;
+    if (signatureSrc) {
+      signatureEl.src = ASSET_RESOLVER(signatureSrc);
+      signatureEl.style.display = 'block';
+    } else {
+      signatureEl.style.display = 'none';
+    }
+  }
+
   setText('due-date-label', (AppState.mode === 'quote') ? 'Validity Date' : 'Due Date');
   setText('preview-due-date-label', (AppState.mode === 'quote') ? 'Validity Date:' : 'Due Date:');
 
   setDisplay('preview-to', !isLetter);
   setDisplay('items-table', !isLetter);
   setDisplay('totals-preview', !isLetter);
-  setDisplay('acceptance-preview', AppState.mode === 'quote');
+  setDisplay('acceptance-preview', isQuote);
+  setDisplay('preview-notes', isQuote);
   // Show Payment Advice only on invoice mode; handle Tailwind 'hidden' class
   const adviceSection = el('payment-advice-preview');
   if (adviceSection) {
