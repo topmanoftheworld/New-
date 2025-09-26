@@ -1,6 +1,18 @@
 import { AppState } from './state.js';
 
-const API_ENDPOINT = '/api/ai-assistant';
+const DEFAULT_ENDPOINT = '/api/ai-assistant';
+const LOCAL_SERVER_ENDPOINT = 'http://localhost:3001/api/ai-assistant';
+
+function resolveEndpoint() {
+  if (window.AI_ASSISTANT_ENDPOINT) return window.AI_ASSISTANT_ENDPOINT;
+  const origin = window.location?.origin ?? '';
+  if (!origin || origin === 'null' || origin.startsWith('file:')) {
+    return LOCAL_SERVER_ENDPOINT;
+  }
+  return DEFAULT_ENDPOINT;
+}
+
+const API_ENDPOINT = resolveEndpoint();
 const DEFAULT_ERROR = 'Something went wrong while contacting the AI service. Please try again.';
 
 const CONTEXTS = {
