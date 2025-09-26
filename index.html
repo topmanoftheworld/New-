@@ -3,26 +3,51 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tomar Admin - Quote & Invoice Generator</title>
+  <title>Tomar Admin - Quote Generator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- fixed favicon viewBox -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
-
-  <link rel="stylesheet" href="style.css">
+  <style>
+    body { font-family: 'Inter', sans-serif; -webkit-print-color-adjust: exact; }
+    .controls-column, .preview-column { height: 100vh; overflow-y: auto; }
+    input, select, textarea { transition: border-color .2s ease-in-out, box-shadow .2s ease-in-out; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.4); }
+    .rte-toolbar { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .5rem; }
+    .rte-btn { font-size: .75rem; padding: .25rem .5rem; border-radius: .375rem; border: 1px solid #d1d5db; background: #f9fafb; color: #374151; }
+    .rte-btn:hover { background: #f3f4f6; }
+    .rte-editor { min-height: 180px; padding: .75rem; border: 1px solid #d1d5db; border-radius: .375rem; background: #fff; }
+    .rte-editor:focus { outline: none; box-shadow: 0 0 0 2px rgba(59,130,246,.25); border-color: #3b82f6; }
+    #document-preview { width: min(100%, 210mm); margin: 0 auto; }
+    .document-page {
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      break-inside: avoid;
+      box-sizing: border-box;
+    }
+    .page-footer { position: absolute; bottom: 8mm; left: 0; right: 0; text-align: center; font-size: 0.75rem; color: #6b7280; }
+    .page-header { display: none; }
+    .signature-line { border-bottom: 1px solid #333; height: 2rem; }
+    @page { size: A4 portrait; margin: 0; }
+    .line-item-row:hover .delete-row-btn { opacity: 1; }
+    @media print {
+      @page { size: A4; margin: 0; }
+      html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .controls-column, .print-hide { display: none !important; }
+      .preview-column { width: 210mm !important; height: auto !important; overflow: visible !important; padding: 0 !important; margin: 0 auto !important; background-color: #fff !important; box-shadow: none !important; }
+      #document-preview { box-shadow: none !important; border: none !important; transform: none !important; transform-origin: top left !important; width: 210mm !important; margin: 0 auto !important; padding: 0 !important; }
+      #document-preview::before, #document-preview::after { display: none !important; }
+      .document-page { width: 210mm !important; min-height: 297mm !important; margin: 0 auto !important; padding: 20mm !important; box-shadow: none !important; box-sizing: border-box !important; page-break-inside: avoid; break-inside: avoid; page-break-after: always; background-color: #fff !important; }
+    }
+  </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
-  <noscript>
-    <div class="h-screen w-screen flex items-center justify-center bg-red-100 text-red-800">
-      <div class="text-center">
-        <h1 class="text-2xl font-bold">JavaScript Required</h1>
-        <p>This application requires JavaScript to function. Please enable it in your browser settings.</p>
-      </div>
-    </div>
-  </noscript>
-
   <div id="app-container" class="flex flex-wrap md:flex-nowrap">
     <!-- Left Column: Controls -->
     <div class="controls-column w-full md:w-1/2 lg:w-2/5 xl:w-1/3 bg-white p-6 border-r border-gray-200 print-hide">
@@ -34,56 +59,21 @@
         </button>
       </div>
 
-      <!-- Mode Toggle -->
       <div class="mb-6">
         <label class="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
-        <div class="flex rounded-lg shadow-sm">
-          <button id="quote-mode-btn" class="flex-1 py-2 px-3 rounded-l-lg focus:outline-none transition duration-200">Quote</button>
-          <button id="invoice-mode-btn" class="flex-1 py-2 px-3 focus:outline-none transition duration-200">Invoice</button>
-          <button id="letterhead-mode-btn" class="flex-1 py-2 px-3 rounded-r-lg focus:outline-none transition duration-200">Letterhead</button>
-        </div>
+        <p class="py-2 px-3 rounded-lg bg-blue-50 text-blue-700 font-semibold text-center">Quote</p>
       </div>
 
-      <!-- New/Save/Load Document -->
       <div class="grid grid-cols-2 gap-4 mb-6">
         <button id="save-doc-btn" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition duration-200">Save Document</button>
         <button id="new-doc-btn" class="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition duration-200">New Document</button>
       </div>
 
-      <!-- Saved Documents -->
       <div class="mb-6">
         <label class="block text-sm font-medium text-gray-700 mb-2">Saved Documents</label>
         <div id="saved-documents-list" class="max-h-48 overflow-y-auto bg-gray-50 p-2 rounded-lg border"></div>
       </div>
 
-      <!-- AI Assistant -->
-      <div id="ai-assistant" class="mb-6 p-4 bg-white rounded-lg border shadow-sm hidden">
-        <div class="flex flex-col md:flex-row md:items-end md:space-x-4 space-y-4 md:space-y-0">
-          <div class="flex-1 min-w-0">
-            <label for="ai-assistant-context" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Content Area</label>
-            <select id="ai-assistant-context" data-ai="context-select" class="mt-1 w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
-          </div>
-          <div class="flex-1 min-w-0 md:w-80">
-            <label for="ai-assistant-api-key" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">AI API Key</label>
-            <input type="text" id="ai-assistant-api-key" data-ai="api-key" placeholder="Paste Gemini or ChatGPT API key" class="mt-1 w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-        </div>
-        <p data-ai="context-hint" class="mt-2 text-xs text-gray-500 hidden"></p>
-        <form data-ai="prompt-form" class="mt-4 flex flex-col md:flex-row gap-3">
-          <input type="text" data-ai="prompt-input" class="flex-1 p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ask the AI about your document…" aria-label="AI prompt input" />
-          <div class="flex items-center gap-2">
-            <button type="submit" data-ai="prompt-submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">Generate</button>
-            <div class="relative">
-              <button type="button" data-ai="quick-trigger" class="px-4 py-2 border border-gray-300 text-sm font-semibold rounded-md bg-white text-gray-700 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-haspopup="true" aria-expanded="false">AI Actions ✨</button>
-              <div data-ai="quick-menu" class="hidden absolute right-0 mt-2 w-64 rounded-lg border border-gray-200 bg-white shadow-xl z-30 overflow-hidden"></div>
-            </div>
-          </div>
-        </form>
-        <p data-ai="status" class="mt-3 text-sm text-blue-600 hidden"></p>
-        <p data-ai="error" class="mt-2 text-sm text-red-600 hidden"></p>
-      </div>
-
-      <!-- From / Company Info -->
       <div class="mb-6 p-4 bg-gray-50 rounded-lg border">
         <h3 class="text-lg font-semibold mb-3 text-gray-800">From</h3>
         <label class="block text-sm font-medium text-gray-700">Branch</label>
@@ -95,9 +85,8 @@
         </div>
       </div>
 
-      <!-- Bill To -->
       <div class="mb-6 p-4 bg-gray-50 rounded-lg border">
-        <h3 id="bill-to-heading" class="text-lg font-semibold mb-3 text-gray-800">Bill To</h3>
+        <h3 class="text-lg font-semibold mb-3 text-gray-800">Bill To</h3>
         <div class="space-y-3">
           <input type="text" id="client-name" placeholder="Client Name" class="w-full p-2 border border-gray-300 rounded-md" />
           <textarea id="client-address" placeholder="Client Address" class="w-full p-2 border border-gray-300 rounded-md" rows="3"></textarea>
@@ -106,62 +95,31 @@
         </div>
       </div>
 
-      <!-- Dates -->
       <div class="mb-6 p-4 bg-gray-50 rounded-lg border">
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label for="doc-date" class="block text-sm font-medium text-gray-700">Document Date</label>
             <input type="date" id="doc-date" class="mt-1 w-full p-2 border border-gray-300 rounded-md" />
           </div>
-          <div id="due-date-wrap">
-            <label id="due-date-label" for="due-date" class="block text-sm font-medium text-gray-700">Due Date</label>
+          <div>
+            <label for="due-date" class="block text-sm font-medium text-gray-700">Due Date</label>
             <input type="date" id="due-date" class="mt-1 w-full p-2 border border-gray-300 rounded-md" />
           </div>
         </div>
       </div>
 
-      <!-- Line Items -->
-      <div id="items-block" class="mb-4">
-        <h3 id="items-block-title" class="text-lg font-semibold mb-3 text-gray-800">Items</h3>
+      <div class="mb-4">
+        <h3 class="text-lg font-semibold mb-3 text-gray-800">Items</h3>
         <div id="line-items-container" class="space-y-3"></div>
         <button id="add-item-btn" class="mt-3 w-full bg-blue-100 text-blue-800 py-2 rounded-lg hover:bg-blue-200 transition duration-200">+ Add Item</button>
       </div>
 
-      <!-- Letterhead Content (only for letterhead mode) -->
-      <div id="letterhead-content-controls" class="mb-6 p-4 bg-gray-50 rounded-lg border hidden">
-        <h3 class="text-lg font-semibold mb-3 text-gray-800">Content</h3>
-        <div class="rte-toolbar" id="letterhead-toolbar">
-          <button type="button" class="rte-btn" data-cmd="bold" data-target="letterhead-editor"><strong>B</strong></button>
-          <button type="button" class="rte-btn" data-cmd="italic" data-target="letterhead-editor"><em>I</em></button>
-          <button type="button" class="rte-btn" data-cmd="underline" data-target="letterhead-editor"><u>U</u></button>
-          <button type="button" class="rte-btn" data-cmd="insertUnorderedList" data-target="letterhead-editor">• List</button>
-          <button type="button" class="rte-btn" data-cmd="insertOrderedList" data-target="letterhead-editor">1. List</button>
-          <button type="button" class="rte-btn" data-cmd="formatBlock" data-value="p" data-target="letterhead-editor">Paragraph</button>
-          <button type="button" class="rte-btn" data-cmd="formatBlock" data-value="h3" data-target="letterhead-editor">H3</button>
-          <button type="button" class="rte-btn" data-cmd="clear" data-action="clear" data-target="letterhead-editor">Clear</button>
-        </div>
-        <div id="letterhead-editor" class="rte-editor" contenteditable="true" aria-label="Letterhead content editor"></div>
-        <div class="mt-4 space-y-2">
-          <label class="block text-sm font-medium text-gray-700" for="letterhead-image-upload">Letterhead Images</label>
-          <input type="file" id="letterhead-image-upload" accept="image/*" class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-          <div class="flex items-center space-x-2">
-            <select id="letterhead-image-select" class="flex-1 p-2 border border-gray-300 rounded-md text-sm" disabled>
-              <option value="">— Select an image —</option>
-            </select>
-            <button id="letterhead-insert-image-btn" class="bg-blue-600 text-white px-3 py-2 rounded-md text-sm disabled:opacity-50" type="button" disabled>Insert Image</button>
-          </div>
-          <p class="text-xs text-gray-500">Upload an image to insert it at the cursor within the letterhead editor. You can continue typing before or after the image.</p>
-        </div>
-      </div>
-
-      <!-- Totals Settings -->
-      <div id="totals-settings" class="mb-6 p-4 bg-gray-50 rounded-lg border">
+      <div class="mb-6 p-4 bg-gray-50 rounded-lg border">
         <h3 class="text-lg font-semibold mb-3 text-gray-800">Totals</h3>
         <div class="space-y-4">
           <div>
             <label for="discount-value" class="block text-sm font-medium text-gray-700">Discount</label>
             <input type="text" id="discount-value" inputmode="decimal" placeholder="Enter discount amount" class="mt-1 w-full p-2 border border-gray-300 rounded-md" />
-            <p class="mt-1 text-xs text-gray-500">Leave blank if no discount.</p>
           </div>
           <div>
             <label for="gst-rate" class="block text-sm font-medium text-gray-700">GST Rate (%)</label>
@@ -170,36 +128,16 @@
         </div>
       </div>
 
-      <!-- Payment Advice (Invoice mode only) -->
-      <div id="advice-controls" class="mb-6 p-4 bg-gray-50 rounded-lg border hidden">
-        <h3 class="text-lg font-semibold mb-3 text-gray-800">Payment Advice</h3>
-        <p class="text-xs text-gray-500 mb-2">Shown at the very end of the invoice. Hidden if empty.</p>
-        <div class="rte-toolbar" id="advice-toolbar">
-          <button type="button" class="rte-btn" data-cmd="bold" data-target="advice-editor"><strong>B</strong></button>
-          <button type="button" class="rte-btn" data-cmd="italic" data-target="advice-editor"><em>I</em></button>
-          <button type="button" class="rte-btn" data-cmd="underline" data-target="advice-editor"><u>U</u></button>
-          <button type="button" class="rte-btn" data-cmd="insertUnorderedList" data-target="advice-editor">• List</button>
-          <button type="button" class="rte-btn" data-cmd="insertOrderedList" data-target="advice-editor">1. List</button>
-          <button type="button" class="rte-btn" data-cmd="formatBlock" data-value="p" data-target="advice-editor">Paragraph</button>
-          <button type="button" class="rte-btn" data-cmd="formatBlock" data-value="h3" data-target="advice-editor">H3</button>
-          <button type="button" class="rte-btn" data-cmd="clear" data-action="clear" data-target="advice-editor">Clear</button>
-        </div>
-        <div id="advice-editor" class="rte-editor" contenteditable="true" aria-label="Payment advice editor"></div>
-      </div>
-
-      <!-- Notes / Terms (Quote mode only) -->
-      <div id="notes-controls" class="mb-6">
+      <div class="mb-6">
         <h3 class="text-lg font-semibold mb-3 text-gray-800">Notes / Terms</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-          <div>
-            <label for="notes-template" class="block text-sm font-medium text-gray-700">Notes/Terms Template</label>
-            <select id="notes-template" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
-              <option value="">— Select a template —</option>
-              <option value="exterior">Exterior Painting</option>
-              <option value="interior">Interior Painting</option>
-              <option value="roof">Roof Painting</option>
-            </select>
-          </div>
+        <div class="mb-3">
+          <label for="notes-template" class="block text-sm font-medium text-gray-700">Notes/Terms Template</label>
+          <select id="notes-template" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+            <option value="">— Select a template —</option>
+            <option value="exterior">Exterior Painting</option>
+            <option value="interior">Interior Painting</option>
+            <option value="roof">Roof Painting</option>
+          </select>
         </div>
         <div class="rte-toolbar" id="notes-toolbar">
           <button type="button" class="rte-btn" data-cmd="bold" data-target="notes-editor"><strong>B</strong></button>
@@ -212,34 +150,16 @@
           <button type="button" class="rte-btn" data-cmd="clear" data-action="clear" data-target="notes-editor">Clear</button>
         </div>
         <div id="notes-editor" class="rte-editor" contenteditable="true" aria-label="Notes/Terms editor"></div>
-        <p class="mt-1 text-xs text-gray-500">Shown on the Notes/Terms page.</p>
       </div>
     </div>
 
     <!-- Right Column: Preview -->
     <div class="preview-column w-full md:w-1/2 lg:w-3/5 xl:w-2/3 bg-gray-200 p-8 flex flex-col items-center">
-      <!-- Themes Picker (thumbnails) -->
-      <div class="w-full max-w-4xl mb-4 print-hide">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-sm font-semibold text-gray-700">Themes</h3>
-          <div class="flex items-center gap-2">
-            <button id="clear-theme-btn" class="text-xs px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-800" type="button">Clear</button>
-          </div>
-        </div>
-        <div id="themes-grid" class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2"></div>
-      </div>
-
       <div id="document-preview" class="bg-white w-full max-w-4xl shadow-lg p-0 transform scale-95 origin-top">
-        <!-- Page 1 -->
-        <section class="document-page p-12 aspect-[1/1.414]">
-          <div class="page-header">
-            <div id="page-header-left-1"></div>
-            <div id="page-header-right-1"></div>
-          </div>
-          <!-- Header -->
+        <section id="page-1" class="document-page p-12 aspect-[1/1.414]">
           <div class="flex justify-between items-start mb-12">
-            <div id="preview-from" class="text-sm">
-              <img id="preview-logo" src="" alt="Company Logo" class="max-h-20 mb-4" onerror="this.style.display='none'" />
+            <div class="text-sm">
+              <img id="preview-logo" src="" alt="Company Logo" class="max-h-20 mb-4" />
               <p class="font-bold text-lg" id="preview-branch-name"></p>
               <p id="preview-branch-address" class="whitespace-pre-line"></p>
               <p id="preview-branch-phone"></p>
@@ -247,37 +167,27 @@
               <p id="preview-branch-website"></p>
               <p id="preview-branch-gst"></p>
             </div>
-          <div class="text-right">
-            <h2 id="preview-doc-title" class="text-4xl font-bold uppercase text-gray-800">Quote</h2>
-            <p id="preview-doc-date-title" class="text-gray-500 hidden"></p>
-            <div id="preview-letter-to" class="mt-2 text-right text-sm hidden">
-              <h4 class="font-bold text-gray-500 mb-1">TO</h4>
-              <p id="lh-client-name" class="font-bold"></p>
-              <p id="lh-client-address" class="whitespace-pre-line"></p>
-              <p id="lh-client-email"></p>
-              <p id="lh-client-phone"></p>
+            <div class="text-right">
+              <h2 class="text-4xl font-bold uppercase text-gray-800">Quote</h2>
+              <p class="text-gray-500" id="preview-doc-number"></p>
             </div>
-            <p class="text-gray-500" id="preview-doc-number"></p>
-          </div>
           </div>
 
-          <!-- Bill To & Dates -->
           <div class="flex justify-between mb-10 text-sm">
-            <div id="preview-to">
-              <h4 id="preview-to-heading" class="font-bold text-gray-500 mb-1">BILL TO</h4>
+            <div>
+              <h4 class="font-bold text-gray-500 mb-1">BILL TO</h4>
               <p class="font-bold" id="preview-client-name"></p>
               <p id="preview-client-address" class="whitespace-pre-line"></p>
               <p id="preview-client-email"></p>
               <p id="preview-client-phone"></p>
             </div>
-            <div id="preview-dates-right" class="text-right">
+            <div class="text-right">
               <p><span class="font-bold text-gray-500">Date:</span> <span id="preview-doc-date"></span></p>
-              <p><span id="preview-due-date-label" class="font-bold text-gray-500">Due Date:</span> <span id="preview-due-date"></span></p>
+              <p><span class="font-bold text-gray-500">Due Date:</span> <span id="preview-due-date"></span></p>
             </div>
           </div>
 
-          <!-- Items Table -->
-          <table id="items-table" class="w-full mb-8 text-sm">
+          <table class="w-full mb-8 text-sm">
             <thead class="border-b-2 border-gray-800">
               <tr>
                 <th class="text-left font-bold text-gray-600 uppercase py-2">Description</th>
@@ -289,11 +199,7 @@
             <tbody id="preview-line-items"></tbody>
           </table>
 
-          <!-- Letterhead Content Preview -->
-          <div id="preview-letterhead-content" class="text-sm hidden"></div>
-
-          <!-- Totals -->
-          <div id="totals-preview" class="flex justify-end mb-8">
+          <div class="flex justify-end mb-8">
             <div class="w-64 text-sm">
               <div class="flex justify-between py-1">
                 <span class="font-semibold">Subtotal</span>
@@ -314,38 +220,32 @@
             </div>
           </div>
 
-          <!-- Client Acceptance -->
-          <div id="acceptance-preview" class="mt-8 pt-6 border-t">
-            <h4 class="font-bold text-gray-700 mb-3 text-sm">Client Acceptance of Quote</h4>
-            <div class="grid grid-cols-12 gap-4 items-end text-sm">
-              <div class="col-span-12 md:col-span-6">
-                <label class="text-gray-600">Name</label>
-                <div class="signature-line"></div>
-                <p class="mt-1" id="preview-accept-name"></p>
-              </div>
-              <div class="col-span-12 md:col-span-12">
-                <label class="text-gray-600">Signature</label>
-                <div class="h-20 border-b border-gray-800 flex items-center">
-                  <img id="preview-accept-signature" src="" alt="Signature" class="max-h-16" style="display:none" />
+          <div id="acceptance-and-notes-container" class="mt-8">
+            <div id="acceptance-preview" class="pt-6 border-t">
+              <h4 class="font-bold text-gray-700 mb-3 text-sm">Client Acceptance of Quote</h4>
+              <div class="grid grid-cols-12 gap-4 items-end text-sm">
+                <div class="col-span-12 md:col-span-6">
+                  <label class="text-gray-600">Name</label>
+                  <div class="signature-line"></div>
+                  <p class="mt-1" id="preview-accept-name"></p>
+                </div>
+                <div class="col-span-12 md:col-span-12">
+                  <label class="text-gray-600">Signature</label>
+                  <div class="h-20 border-b border-gray-800 flex items-center">
+                    <img id="preview-accept-signature" src="" alt="Signature" class="max-h-16" style="display:none" />
+                  </div>
                 </div>
               </div>
             </div>
+            <div id="preview-notes" class="text-sm text-gray-700 mt-8"></div>
           </div>
-          <div id="preview-notes" class="text-sm text-gray-700 mt-8"></div>
-          <!-- Payment Advice (Invoice) -->
-          <div id="payment-advice-preview" class="mt-8 pt-6 border-t hidden">
-            <h4 class="font-bold text-gray-700 mb-3 text-sm">Payment Advice</h4>
-            <div id="preview-advice-content" class="text-sm space-y-1"></div>
-          </div>
-          <div class="page-footer"><span class="page-number"></span> / <span class="page-count"></span></div>
-        </section>
 
-        
+          <div class="page-footer"><span class="page-number">1</span> / <span class="page-count">1</span></div>
+        </section>
       </div>
     </div>
   </div>
 
-  <!-- Manage Branches Modal -->
   <div id="branch-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
       <div class="flex justify-between items-center p-4 border-b">
@@ -381,6 +281,641 @@
       </div>
     </div>
   </div>
-  <script src="main.js" type="module"></script>
+
+<script type="module">
+// --- CONFIG ---
+const NotesTemplates = Object.freeze({
+      exterior: `
+        <h3>Agreement & Acceptance</h3>
+        <p><strong>Binding Agreement:</strong> This quotation is valid for acceptance for 90 days from the date of issue. Acceptance must be confirmed in writing (e.g., via email or by signing and returning this document). In the absence of written confirmation, a verbal or written instruction for work to commence will constitute your full acceptance of this quotation and all terms and conditions contained herein.</p>
+        <p><strong>Consumer Guarantees Act 1993 (CGA):</strong> For residential projects, this agreement is subject to the guarantees outlined in the CGA, which ensure that our services are provided with reasonable care and skill, are fit for purpose, and are completed within a reasonable timeframe.</p>
+        <p><strong>Construction Contracts Act 2002 (CCA):</strong> All painting work is defined as "construction work" under the CCA. All quotes issued by Tomar Contracting Limited will be in the form of a "quote" under the Act.</p>
+        <h3>Project Execution & Site Management</h3>
+        <p><strong>Weather Contingency:</strong> Exterior painting is strictly weather-dependent. Work cannot proceed during rain, in high winds, when humidity is above 85%, or when temperatures are below the paint manufacturer's minimum specification (typically 10°C). The agreed-upon project timeline will be extended to account for any days lost due to adverse weather, and Tomar Contracting Limited shall not be held liable for such delays. We will maintain proactive communication regarding any weather-related schedule changes.</p>
+        <p><strong>Site Access & Client Responsibilities:</strong> The client agrees to provide clear, safe, and unimpeded access to all work areas for the duration of the project. Prior to our arrival, we request that you:</p>
+        <ul>
+          <li>Remove all vehicles from driveways and nearby parking spaces.</li>
+          <li>Relocate all outdoor furniture, pot plants, BBQs, and decorative items away from the house.</li>
+          <li>Trim back any trees, shrubs, or vines that are touching or within 60cm of the surfaces to be painted.</li>
+          <li>Ensure pets and children are kept clear of the work area at all times for their safety.</li>
+        </ul>
+        <p><strong>Health & Safety:</strong> All work will be conducted in strict accordance with the Health and Safety at Work Act 2015. Our team is SiteSafe certified and will operate under a site-specific safety plan. The client has a duty to inform us of any known hazards on the property, such as asbestos, unstable structures, or faulty wiring, prior to work commencing.</p>
+        <h3>Scope, Variations & Unforeseen Conditions</h3>
+        <p><strong>Variations:</strong> Any work requested by the client that falls outside the scope of work will be treated as a variation. All variations will be quoted in writing, detailing the additional cost and any impact on the project timeline. Work on a variation will only commence after we receive your written approval.</p>
+        <p><strong>Pre-Existing Conditions (Repaint Work):</strong> This quotation is based on the assumption that all existing substrates and underlying paint layers are sound. Tomar Contracting Limited is not responsible for the failure of previous coatings. If the new paint system fails due to an underlying layer losing adhesion, this is expressly excluded from our workmanship guarantee.</p>
+        <p><strong>Unforeseen Issues:</strong> Any significant defects discovered only after work has commenced (e.g., extensive timber rot, structural damage, or moisture ingress hidden beneath existing paint) are excluded from this fixed-price quote. Upon discovery, work in the affected area will cease, we will notify you immediately with a clear explanation and photographic evidence, and we will provide a priced variation for the necessary remedial work. Work will not resume in that area until the variation is approved.</p>
+        <p><strong>Lead-Based Paint Discovery:</strong> For properties built before the 1980s, we assume the absence of lead-based paint unless advised otherwise. If lead-based paint is suspected or discovered during preparation, all work in the affected area will cease immediately. We will notify you and provide a priced variation for the specialised containment, removal, and disposal procedures required to comply with WorkSafe New Zealand guidelines.</p>
+        <p><strong>Exclusions:</strong> Unless explicitly included in the Scope of Work, this quote excludes: major carpentry or plastering repairs, painting of interior window surfaces, gutter interiors, and any areas not listed in the quote.</p>
+        <h3>Warranties, Liability & Dispute Resolution</h3>
+        <p><strong>Workmanship Guarantee:</strong> We provide a comprehensive workmanship guarantee on the application of the specified paint system against peeling, flaking, or blistering resulting from defective application. We also provide a one-month follow-up inspection to address any necessary touch-ups. This guarantee is separate from the paint manufacturer's product warranty and does not cover damage caused by moisture ingress, substrate movement, accidental damage by others, or normal wear and tear.</p>
+        <p><strong>Limitation of Liability:</strong> Our maximum aggregate liability for any claim is limited to the total contract price. While all care is taken, older glass can become brittle and may crack during the vibrations of sanding and preparation; we are not liable for such breakages unless caused by direct negligence.</p>
+        <p><strong>Dispute Resolution:</strong> In the unlikely event of a dispute, both parties agree to first attempt resolution through direct, good-faith negotiation. If unresolved, the matter may be referred to mediation or adjudication under the CCA.</p>
+      `,
+      interior: `
+        <h3>Agreement & Acceptance</h3>
+        <p><strong>Binding Agreement:</strong> This quotation is valid for acceptance for 90 days from the date of issue. Acceptance must be confirmed in writing (e.g., via email or by signing and returning this document). In the absence of written confirmation, your instruction for work to commence will constitute your full acceptance of this quotation and all terms and conditions contained herein.</p>
+        <p><strong>Consumer Guarantees Act 1993 (CGA):</strong> As this is a residential project, this agreement is subject to the guarantees outlined in the CGA. This Act ensures that our services are provided with reasonable care and skill, are fit for their intended purpose, and are completed within a reasonable time.</p>
+        <p><strong>Construction Contracts Act 2002 (CCA):</strong> All painting and decorating work is defined as "construction work" under the CCA. All quotes issued by Tomar Contracting Limited will be in the form of a "quote" under the Act.</p>
+        <h3>Project Execution & Site Management</h3>
+        <p><strong>Client Responsibilities (Pre-Commencement):</strong> To ensure a safe and efficient workflow, and to protect your belongings, we require the following to be completed by you prior to our team's arrival:</p>
+        <ul>
+          <li>Clear Work Areas: Please remove all furniture, pictures, mirrors, wall hangings, fragile items, electronics, and personal effects from the rooms scheduled for painting. On request our team is able to help moving items upon request.</li>
+          <li>Fixtures: Please remove all curtains, blinds, and associated hardware (our team can assist if needed). Our team will remove and reinstate standard switch plates and outlet covers.</li>
+          <li>Safety: Ensure children and pets are kept clear of the work area and away from our tools, equipment, and materials for the entire duration of the project.</li>
+          <li>Access & Ventilation: Provide clear access to work areas, including power and water. Allow windows and doors to be opened as required for ventilation and curing.</li>
+        </ul>
+        <h3>Scope, Variations & Unforeseen Conditions</h3>
+        <p><strong>Variations:</strong> Any work requested by the client that falls outside the scope will be treated as a variation. All variations must be requested in writing and will be separately quoted for cost and time impact. Work on a variation will commence after written approval.</p>
+        <p><strong>Pre-Existing Conditions (Repaint Work):</strong> This quotation assumes existing substrates and underlying paint layers are sound and stable. Failure of previous coatings is excluded from our workmanship guarantee.</p>
+        <p><strong>Unforeseen Issues:</strong> Significant defects discovered only after work has commenced (e.g., water damage, significant plaster cracking, or active mould growth hidden behind existing surfaces) are excluded from this fixed-price quote. We will notify you with explanation and photos and provide a priced variation for remedial work.</p>
+        <p><strong>Exclusions:</strong> Unless explicitly included in the Scope of Work, this quote excludes: the interior of wardrobes/cupboards/closets; major plastering repairs (beyond minor hole/crack filling); removal or relocation of specialised or excessively heavy furniture.</p>
+        <h3>Warranties, Liability & Dispute Resolution</h3>
+        <p><strong>Workmanship Guarantee:</strong> We guarantee against defects such as peeling, flaking, or blistering resulting from faulty application, and provide a one-month follow-up for touch-ups. This guarantee is separate from the manufacturer’s warranty and excludes damage due to structural movement, moisture ingress, damage by others, or normal wear and tear.</p>
+        <p><strong>Limitation of Liability:</strong> To the maximum extent permitted by law, liability is limited to the total contract price.</p>
+        <p><strong>Dispute Resolution:</strong> Parties agree to first attempt resolution through good-faith negotiation; otherwise, mediation or adjudication under the CCA may be used.</p>
+      `,
+      roof: `
+        <h3>Agreement & Acceptance</h3>
+        <p><strong>Binding Agreement:</strong> This quotation is valid for acceptance for 90 days from its date of issue. Written confirmation is required; instructing us to commence work will constitute acceptance.</p>
+        <p><strong>Consumer Guarantees Act 1993 (CGA):</strong> Applicable to residential work, ensuring services are carried out with reasonable care and skill, are fit for purpose, and completed within a reasonable timeframe.</p>
+        <p><strong>Construction Contracts Act 2002 (CCA):</strong> All painting work, including roof painting, is defined as "construction work" under the CCA. All quotes will be in the form of a "quote".</p>
+        <h3>Project Execution & Site Management</h3>
+        <p><strong>Weather Contingency:</strong> Roof painting is highly weather-dependent. No work during rain, high winds, when surfaces are damp, humidity above 85%, or temperatures below manufacturer minimums (typically 10°C). Timelines will extend for weather days, without liability for delays.</p>
+        <p><strong>Site Access & Client Responsibilities:</strong> Please move vehicles away from areas where overspray could drift, relocate outdoor items away from the perimeter, and ensure pets/children are kept clear of the work area.</p>
+        <p><strong>Health & Safety:</strong> Work is carried out under the Health and Safety at Work Act 2015 and a site-specific safety plan. Please advise of any known hazards prior to commencement.</p>
+        <h3>Scope, Variations & Unforeseen Conditions</h3>
+        <p><strong>Variations:</strong> Out-of-scope work will be quoted in writing with costs and timeline impact and commenced upon written approval.</p>
+        <p><strong>Pre-Existing Conditions:</strong> We assume the roof substrate and underlying coatings are fundamentally sound. Failure of previous coatings is excluded from our workmanship guarantee.</p>
+        <p><strong>Unforeseen Issues:</strong> Significant issues discovered after start (e.g., corrosion, substrate failure) are excluded. We will notify you promptly with evidence and a priced variation for remedial work.</p>
+        <p><strong>Exclusions:</strong> Unless included in scope, this quote excludes major structural repairs, fixing leaks not related to the new paint system, painting interior of gutters, aerials/satellite dishes/solar panels.</p>
+        <h3>Warranties, Liability & Dispute Resolution</h3>
+        <p><strong>Workmanship Guarantee:</strong> Covers specified paint system application against peeling, flaking, or blistering due to defective application, with a one-month follow-up inspection. Excludes horizontal surfaces or areas that collect moisture and damage beyond our control.</p>
+        <p><strong>Limitation of Liability:</strong> Liability is limited to the total contract price.</p>
+        <p><strong>Dispute Resolution:</strong> Disputes will first be addressed via good-faith negotiation, then mediation or adjudication under the CCA if required.</p>
+      `
+    });
+
+// --- STATE MANAGEMENT ---
+const STORAGE_KEY = 'tomarAdminState';
+let AppState = {};
+
+function lsGet(key) {
+  try { return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null; }
+  catch { return null; }
+}
+
+function lsSet(key, value) {
+  try { if (typeof localStorage !== 'undefined') localStorage.setItem(key, value); }
+  catch { /* ignore */ }
+}
+
+function safeParseJSON(s) {
+  try { return JSON.parse(s); } catch { return null; }
+}
+
+function getInitialState() {
+  const logoBase64 = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAE5A+gDASIAAhEBAxEB/8QAGwABAAMBAQEBAAAAAAAAAAAAAAUGBwEDBAj/xABEEAABAwMCAwQHBgQEBQMFAAAAAQIDBAURBhIhMRNBUWEHFCJxgZEyobHB0RUjQlLh8GIkM3KS8RY0Y4KiNURTk7LC/8QAGAEBAQEBAQAAAAAAAAAAAAAAAAECAwT/xAAgEQEBAQEAAwEBAQEBAQEAAAAAAQIRITESQVEDYXEE/9oADAMBAAIRAxEAPwD9xQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQBAEAQ-f-un/d';
+  return {
+    id: null,
+    branches: [
+      { id: 1, name: 'Tomar Contracting - Hamilton', address: '59 Boundary Road\nClaudelands, Hamilton 3214', email: 'info@tomarcontracting.co.nz', phone: '0800 TOMAR C (866272)', website: 'hamilton.tomarcontracting.co.nz', gst: '137-684-446', logo: logoBase64 },
+      { id: 2, name: 'Tomar Contracting - Rotorua', address: '68 Alison Street\nMangakakahi, Rotorua 3015', email: 'info@tomarcontracting.co.nz', phone: '0800 TOMAR C (866272)', website: 'rotorua.tomarcontracting.co.nz', gst: '137-684-446', logo: logoBase64 }
+    ],
+    selectedBranchIndex: 0,
+    clientInfo: { name: '', address: '', email: '', phone: '' },
+    document: { number: '', date: '', dueDate: '' },
+    lineItems: [],
+    totals: { discount: null, gstRate: 15 },
+    notes: '',
+    acceptance: { name: '', date: '', signature: '' },
+    global: { savedDocuments: [], counters: { quote: 1001 } }
+  };
+}
+
+function saveState() {
+  lsSet(STORAGE_KEY, JSON.stringify(AppState.global));
+}
+
+function loadState() {
+  const initialState = getInitialState();
+  AppState = initialState;
+  const savedRaw = lsGet(STORAGE_KEY);
+  if (savedRaw) {
+    const parsedGlobal = safeParseJSON(savedRaw);
+    if (parsedGlobal && typeof parsedGlobal === 'object') {
+      if (Array.isArray(parsedGlobal.savedDocuments)) AppState.global.savedDocuments = parsedGlobal.savedDocuments;
+      if (parsedGlobal.counters && typeof parsedGlobal.counters === 'object') {
+        AppState.global.counters.quote = Number(parsedGlobal.counters.quote) || AppState.global.counters.quote;
+      }
+    }
+  }
+}
+
+// --- DOM MANIPULATION & RENDERING ---
+function formatCurrency(amount) {
+  const num = parseFloat(amount);
+  if (isNaN(num)) return '';
+  return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(num);
+}
+
+function dateFromYMD(ymd) {
+    if (!ymd || typeof ymd !== 'string') return new Date();
+    const parts = ymd.split('-');
+    if (parts.length !== 3) return new Date();
+    const [year, month, day] = parts.map(p => parseInt(p, 10));
+    return new Date(year, month - 1, day);
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '';
+  const date = dateFromYMD(dateString);
+  return new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+}
+
+function el(id) { return document.getElementById(id); }
+function setText(id, value) { const e = el(id); if (e) e.innerText = value ?? ''; }
+function setHTML(id, value) { const e = el(id); if (e) e.innerHTML = value ?? ''; }
+function setDisplay(target, show = true) {
+  const e = typeof target === 'string' ? el(target) : target;
+  if (e) e.style.display = show ? '' : 'none';
+}
+function setValue(id, value) { const e = el(id); if (e) e.value = value ?? ''; }
+
+function renderBranchDropdown() {
+  const select = document.getElementById('branch-select');
+  if (!select) return;
+  select.innerHTML = '';
+  AppState.branches.forEach((b, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = b.name;
+    if (i === AppState.selectedBranchIndex) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
+function renderLineItems() {
+  const container = document.getElementById('line-items-container');
+  if (!container) return;
+  container.innerHTML = '';
+  AppState.lineItems.forEach((item, index) => {
+    const row = document.createElement('div');
+    row.className = 'grid grid-cols-12 gap-2 items-center py-1';
+    row.innerHTML = `
+      <div class="col-span-12 md:col-span-6"><textarea class="w-full p-2 border border-gray-300 rounded-md text-sm" rows="2" placeholder="Description">${item.description || ''}</textarea></div>
+      <div class="col-span-4 md:col-span-2"><input type="number" placeholder="Qty" value="${item.quantity ?? 0}" class="w-full p-2 border border-gray-300 rounded-md text-sm"></div>
+      <div class="col-span-4 md:col-span-3"><input type="number" placeholder="Price" value="${item.unitPrice ?? 0}" class="w-full p-2 border border-gray-300 rounded-md text-sm"></div>
+      <div class="col-span-4 md:col-span-1 flex justify-end"><button class="text-gray-400 hover:text-red-500 p-1 rounded-full transition duration-200 opacity-20 delete-row-btn"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></div>`;
+    const [descInput, qtyInput, priceInput] = row.querySelectorAll('textarea, input');
+    descInput.addEventListener('input', e => window.dispatchEvent(new CustomEvent('dom:updateLineItem', { detail: { index, key: 'description', value: e.target.value } })));
+    qtyInput.addEventListener('input', e => window.dispatchEvent(new CustomEvent('dom:updateLineItem', { detail: { index, key: 'quantity', value: parseFloat(e.target.value) } })));
+    priceInput.addEventListener('input', e => window.dispatchEvent(new CustomEvent('dom:updateLineItem', { detail: { index, key: 'unitPrice', value: parseFloat(e.target.value) } })));
+    row.querySelector('button').addEventListener('click', () => window.dispatchEvent(new CustomEvent('dom:removeLineItem', { detail: { index } })));
+    container.appendChild(row);
+  });
+}
+
+function renderSavedDocuments() {
+  const listContainer = document.getElementById('saved-documents-list');
+  listContainer.innerHTML = '';
+  if (AppState.global.savedDocuments.length === 0) {
+    listContainer.innerHTML = `<p class="text-sm text-gray-500 text-center p-2">No saved documents.</p>`;
+    return;
+  }
+  const sorted = [...AppState.global.savedDocuments].sort((a, b) => new Date(b.meta?.createdAt || b.document.date) - new Date(a.meta?.createdAt || a.document.date));
+  sorted.forEach(doc => {
+    const item = document.createElement('div');
+    item.className = 'flex justify-between items-center bg-white p-2 rounded border mb-2';
+    item.innerHTML = `
+      <div>
+        <p class="font-medium text-sm">${doc.document.number}</p>
+        <p class="text-xs text-gray-500">${formatDate(doc.meta?.createdAt || doc.document.date)}</p>
+      </div>
+      <div class="flex space-x-1">
+        <button class="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600">Load</button>
+        <button class="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">Del</button>
+      </div>`;
+    const [loadBtn, delBtn] = item.querySelectorAll('button');
+    loadBtn.addEventListener('click', () => window.dispatchEvent(new CustomEvent('dom:loadDocument', { detail: { id: doc.id } })));
+    delBtn.addEventListener('click', () => window.dispatchEvent(new CustomEvent('dom:deleteDocument', { detail: { id: doc.id } })));
+    listContainer.appendChild(item);
+  });
+}
+
+function render() {
+  // --- RENDER INPUTS ---
+  setValue('client-name', AppState.clientInfo.name);
+  setValue('client-address', AppState.clientInfo.address);
+  setValue('client-email', AppState.clientInfo.email);
+  setValue('client-phone', AppState.clientInfo.phone);
+  setValue('doc-date', AppState.document.date);
+  setValue('due-date', AppState.document.dueDate);
+  setValue('discount-value', AppState.totals.discount > 0 ? AppState.totals.discount : '');
+  setValue('gst-rate', AppState.totals.gstRate);
+  setHTML('notes-editor', AppState.notes || '');
+
+  // --- RENDER LISTS & DROPDOWNS ---
+  renderBranchDropdown();
+  renderLineItems();
+  renderSavedDocuments();
+
+  // --- RENDER PREVIEW ---
+  const selectedBranch = AppState.branches[AppState.selectedBranchIndex] || {};
+  const logoEl = el('preview-logo');
+  if (logoEl) logoEl.src = selectedBranch.logo || '';
+  
+  setText('preview-branch-name', selectedBranch.name || '');
+  setText('preview-branch-address', selectedBranch.address || '');
+  setText('preview-branch-phone', selectedBranch.phone ? `P: ${selectedBranch.phone}` : '');
+  setText('preview-branch-email', selectedBranch.email ? `E: ${selectedBranch.email}` : '');
+  setText('preview-branch-website', selectedBranch.website ? `W: ${selectedBranch.website}` : '');
+  setText('preview-branch-gst', selectedBranch.gst ? `GST: ${selectedBranch.gst}` : '');
+
+  setText('preview-doc-number', AppState.document.number);
+  setText('preview-client-name', AppState.clientInfo.name);
+  setText('preview-client-address', AppState.clientInfo.address);
+  setText('preview-client-email', AppState.clientInfo.email);
+  setText('preview-client-phone', AppState.clientInfo.phone);
+  setText('preview-doc-date', formatDate(AppState.document.date));
+  setText('preview-due-date', formatDate(AppState.document.dueDate));
+
+  const acceptanceName = AppState.clientInfo.name || '';
+  setText('preview-accept-name', acceptanceName);
+
+  const signatureEl = el('preview-accept-signature');
+  if (signatureEl) {
+    const signatureSrc = AppState.acceptance?.signature;
+    if (signatureSrc) {
+      signatureEl.src = signatureSrc;
+      signatureEl.style.display = 'block';
+    } else {
+      signatureEl.style.display = 'none';
+    }
+  }
+
+  // --- RENDER TOTALS ---
+  const subtotal = AppState.lineItems.reduce((acc, item) => acc + (item.quantity || 0) * (item.unitPrice || 0), 0);
+  const discountAmount = AppState.totals.discount || 0;
+  const taxableAmount = Math.max(0, subtotal - discountAmount);
+  const gstAmount = taxableAmount * (AppState.totals.gstRate / 100);
+  const grandTotal = taxableAmount + gstAmount;
+  
+  setText('preview-subtotal', formatCurrency(subtotal));
+  setDisplay('preview-discount-row', discountAmount > 0);
+  setText('preview-discount', formatCurrency(discountAmount));
+  setText('preview-gst-rate', AppState.totals.gstRate);
+  setText('preview-gst-amount', formatCurrency(gstAmount));
+  setText('preview-grand-total', formatCurrency(grandTotal));
+
+  // --- RENDER ITEMS & NOTES ---
+  const tbody = document.getElementById('preview-line-items');
+  if (tbody) {
+    tbody.innerHTML = AppState.lineItems.map(item => `
+      <tr class="border-b border-gray-200">
+        <td class="py-2 pr-2 whitespace-pre-line">${item.description || ''}</td>
+        <td class="text-right py-2 px-2">${item.quantity || ''}</td>
+        <td class="text-right py-2 px-2">${formatCurrency(item.unitPrice)}</td>
+        <td class="text-right py-2 pl-2 font-medium">${formatCurrency((item.quantity || 0) * (item.unitPrice || 0))}</td>
+      </tr>`).join('');
+  }
+  setHTML('preview-notes', AppState.notes || '');
+}
+
+// --- PAGINATION ---
+function paginateNotesContent() {
+    const preview = el('document-preview');
+    // Clear any existing extra pages
+    preview.querySelectorAll('.document-page[data-generated]').forEach(p => p.remove());
+
+    const page1 = el('page-1');
+    const notesContainer = el('preview-notes');
+    const acceptanceContainer = el('acceptance-and-notes-container');
+    
+    // Temporarily move notes to a hidden div to measure its full height
+    const tempMeasureDiv = document.createElement('div');
+    tempMeasureDiv.style.position = 'absolute';
+    tempMeasureDiv.style.left = '-9999px';
+    tempMeasureDiv.style.width = notesContainer.offsetWidth + 'px';
+    tempMeasureDiv.innerHTML = AppState.notes;
+    document.body.appendChild(tempMeasureDiv);
+    const notesFullHeight = tempMeasureDiv.offsetHeight;
+    document.body.removeChild(tempMeasureDiv);
+
+    const pageHeight = page1.offsetHeight; // A4 page height in pixels
+    const availableSpace = pageHeight - acceptanceContainer.offsetTop - 120; // 120 is an arbitrary buffer for padding/margins
+    
+    if (notesFullHeight > availableSpace) {
+        // Notes content overflows, create a new page
+        const newPage = document.createElement('section');
+        newPage.className = 'document-page p-12 aspect-[1/1.414]';
+        newPage.dataset.generated = 'true';
+        newPage.innerHTML = `
+            <div class="page-header"></div>
+            <h3 class="text-lg font-bold mb-4">Notes / Terms (Continued)</h3>
+            <div class="text-sm text-gray-700"></div>
+            <div class="page-footer"><span class="page-number"></span> / <span class="page-count"></span></div>
+        `;
+        newPage.querySelector('.text-sm').innerHTML = AppState.notes;
+        preview.appendChild(newPage);
+        
+        // Hide original notes container on page 1 as it's now on page 2
+        notesContainer.style.display = 'none';
+    } else {
+        // Notes fit on page 1
+        notesContainer.style.display = 'block';
+        setHTML('preview-notes', AppState.notes);
+    }
+    updatePageNumbers();
+}
+
+function updatePageNumbers() {
+    const pages = document.querySelectorAll('#document-preview .document-page');
+    const pageCount = pages.length;
+    pages.forEach((page, index) => {
+        const numEl = page.querySelector('.page-number');
+        const countEl = page.querySelector('.page-count');
+        if (numEl) numEl.textContent = index + 1;
+        if (countEl) countEl.textContent = pageCount;
+    });
+}
+
+
+// --- EVENTS ---
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => { clearTimeout(timeout); func(...args); };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+function printDocument() { 
+    paginateNotesContent();
+    setTimeout(() => {
+        window.print();
+    }, 100);
+}
+
+function generateDocumentNumber() { AppState.document.number = `TC-${AppState.global.counters.quote}`; }
+
+function newDocument() {
+  if (!confirm('Start a new document? Unsaved changes will be lost.')) return;
+  const globalData = JSON.parse(JSON.stringify(AppState.global));
+  Object.assign(AppState, getInitialState(), { global: globalData });
+  generateDocumentNumber();
+  render();
+}
+
+function saveDocument() {
+  const docId = AppState.id || Date.now().toString();
+  const existingIdx = AppState.global.savedDocuments.findIndex(d => d.id === docId);
+  const snapshot = JSON.parse(JSON.stringify(AppState));
+  delete snapshot.global;
+  snapshot.id = docId;
+  if (existingIdx === -1) {
+    snapshot.meta = { createdAt: new Date().toISOString() };
+    AppState.global.counters.quote++;
+    AppState.global.savedDocuments.push(snapshot);
+    AppState.id = docId;
+  } else {
+    AppState.global.savedDocuments[existingIdx] = snapshot;
+  }
+  saveState();
+  render();
+  alert(`Document ${snapshot.document.number} saved successfully!`);
+}
+
+function loadDocument(id) {
+  const doc = AppState.global.savedDocuments.find(d => d.id === id);
+  if (doc) {
+    const loaded = JSON.parse(JSON.stringify(doc));
+    Object.keys(loaded).forEach(k => { if (k !== 'global') AppState[k] = loaded[k]; });
+    render();
+    alert(`Loaded document ${doc.document.number}.`);
+  }
+}
+
+function deleteDocument(id) {
+  if (!confirm('Delete this saved document?')) return;
+  AppState.global.savedDocuments = AppState.global.savedDocuments.filter(d => d.id !== id);
+  saveState();
+  render();
+}
+
+function addLineItem() {
+  AppState.lineItems.push({ description: '', quantity: 1, unitPrice: 0 });
+  render();
+}
+
+function removeLineItem(index) {
+  AppState.lineItems.splice(index, 1);
+  render();
+}
+
+function updateLineItem(index, key, value) {
+  if (!AppState.lineItems[index]) return;
+  if (key === 'quantity' || key === 'unitPrice') {
+    let v = parseFloat(value);
+    if (isNaN(v) || v < 0) v = 0;
+    AppState.lineItems[index][key] = v;
+  } else {
+    AppState.lineItems[index][key] = value;
+  }
+  render();
+}
+
+function updateSelectedBranch(index) {
+  AppState.selectedBranchIndex = parseInt(index);
+  render();
+}
+
+function toggleBranchModal(show) {
+  const modal = document.getElementById('branch-modal');
+  if (show) {
+    renderModalBranchList();
+    clearBranchForm();
+    modal.classList.remove('hidden');
+  } else {
+    modal.classList.add('hidden');
+  }
+}
+
+function renderModalBranchList() {
+  const list = document.getElementById('modal-branch-list');
+  list.innerHTML = '';
+  AppState.branches.forEach(branch => {
+    const item = document.createElement('div');
+    item.className = 'flex justify-between items-center bg-white p-3 rounded border';
+    item.innerHTML = `
+      <p class="font-medium">${branch.name}</p>
+      <div class="flex space-x-2">
+        <button class="text-xs bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Edit</button>
+        <button class="text-xs bg-red-100 text-red-700 px-3 py-1 rounded hover:bg-red-200">Delete</button>
+      </div>`;
+    const [editBtn, delBtn] = item.querySelectorAll('button');
+    editBtn.addEventListener('click', () => editBranch(branch.id));
+    delBtn.addEventListener('click', () => deleteBranch(branch.id));
+    list.appendChild(item);
+  });
+}
+
+function handleBranchFormSubmit(e) {
+  e.preventDefault();
+  const branchId = document.getElementById('branch-id').value;
+  const data = {
+    id: branchId ? parseInt(branchId) : Date.now(),
+    name: document.getElementById('branch-name').value,
+    address: document.getElementById('branch-address').value,
+    email: document.getElementById('branch-email').value,
+    phone: document.getElementById('branch-phone').value,
+    website: document.getElementById('branch-website').value,
+    gst: document.getElementById('branch-gst').value,
+    logo: document.getElementById('branch-logo').value,
+  };
+  if (branchId) {
+    const idx = AppState.branches.findIndex(b => b.id == branchId);
+    if (idx > -1) AppState.branches[idx] = data;
+  } else {
+    AppState.branches.push(data);
+  }
+  clearBranchForm();
+  renderModalBranchList();
+  render();
+}
+
+function editBranch(id) {
+  const b = AppState.branches.find(x => x.id == id);
+  if (!b) return;
+  document.getElementById('branch-form-title').innerText = 'Edit Branch';
+  document.getElementById('branch-id').value = b.id;
+  document.getElementById('branch-name').value = b.name;
+  document.getElementById('branch-address').value = b.address;
+  document.getElementById('branch-email').value = b.email;
+  document.getElementById('branch-phone').value = b.phone;
+  document.getElementById('branch-website').value = b.website;
+  document.getElementById('branch-gst').value = b.gst;
+  document.getElementById('branch-logo').value = b.logo;
+}
+
+function deleteBranch(id) {
+  if (AppState.branches.length <= 1) { alert('You must have at least one branch.'); return; }
+  if (!confirm('Delete this branch?')) return;
+  AppState.branches = AppState.branches.filter(b => b.id != id);
+  if (AppState.selectedBranchIndex >= AppState.branches.length) AppState.selectedBranchIndex = 0;
+  renderModalBranchList();
+  render();
+}
+
+function clearBranchForm() {
+  document.getElementById('branch-form-title').innerText = 'Add New Branch';
+  document.getElementById('branch-form').reset();
+  document.getElementById('branch-id').value = '';
+}
+
+function addEventListeners() {
+  const on = (id, event, handler) => { const el = document.getElementById(id); if (el) el.addEventListener(event, handler); };
+  const bindStateInput = (id, setter) => { on(id, 'input', e => { setter(e.target.value); render(); }); };
+  
+  bindStateInput('client-name', v => {
+    AppState.clientInfo.name = v;
+    if (AppState.acceptance) {
+        AppState.acceptance.name = v;
+    }
+  });
+  bindStateInput('client-address', v => AppState.clientInfo.address = v);
+  bindStateInput('client-email', v => AppState.clientInfo.email = v);
+  bindStateInput('client-phone', v => AppState.clientInfo.phone = v);
+  on('doc-date', 'change', e => { AppState.document.date = e.target.value; render(); });
+  on('due-date', 'change', e => { AppState.document.dueDate = e.target.value; render(); });
+  on('gst-rate', 'input', e => { AppState.totals.gstRate = parseFloat(e.target.value) || 0; render(); });
+  on('discount-value', 'input', e => { AppState.totals.discount = parseFloat(e.target.value) || null; render(); });
+
+  const notesEditor = el('notes-editor');
+  notesEditor.addEventListener('input', debounce(() => { 
+      AppState.notes = notesEditor.innerHTML; 
+      // We don't call render() here continuously to avoid cursor jumping
+      // but we might want to call a lightweight update for pagination check
+      paginateNotesContent();
+  }, 300));
+  notesEditor.addEventListener('blur', render); // Full render on blur
+
+  on('notes-template', 'change', e => {
+    const html = (NotesTemplates[e.target.value] || '').trim();
+    AppState.notes = html;
+    notesEditor.innerHTML = html;
+    render();
+    paginateNotesContent();
+  });
+  
+  const notesToolbar = el('notes-toolbar');
+  notesToolbar.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.rte-btn');
+    if (!btn) return;
+    const cmd = btn.dataset.cmd;
+    const value = btn.dataset.value;
+    const action = btn.dataset.action;
+    
+    notesEditor.focus();
+    if(action === 'clear') {
+        notesEditor.innerHTML = '';
+        AppState.notes = '';
+        render();
+        return;
+    }
+    document.execCommand(cmd, false, value || null);
+    AppState.notes = notesEditor.innerHTML;
+  });
+
+  window.addEventListener('dom:updateLineItem', e => updateLineItem(e.detail.index, e.detail.key, e.detail.value));
+  window.addEventListener('dom:removeLineItem', e => removeLineItem(e.detail.index));
+  window.addEventListener('dom:loadDocument', e => loadDocument(e.detail.id));
+  window.addEventListener('dom:deleteDocument', e => deleteDocument(e.detail.id));
+
+  on('branch-form', 'submit', handleBranchFormSubmit);
+  on('branch-select', 'change', e => updateSelectedBranch(e.target.value));
+  on('add-item-btn', 'click', addLineItem);
+  on('print-btn', 'click', printDocument);
+  on('save-doc-btn', 'click', saveDocument);
+  on('new-doc-btn', 'click', newDocument);
+  on('manage-branches-btn', 'click', () => toggleBranchModal(true));
+  on('close-branches-modal-btn', 'click', () => toggleBranchModal(false));
+  on('branch-cancel-btn', 'click', clearBranchForm);
+}
+
+// --- INITIALIZATION ---
+function todayLocalYMD() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function toLocalYMD(date) {
+    if (!(date instanceof Date)) return '';
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function initApp() {
+  loadState();
+  if (!AppState.document.date) {
+    AppState.document.date = todayLocalYMD();
+  }
+  if (!AppState.document.dueDate) {
+    const d = dateFromYMD(AppState.document.date);
+    d.setDate(d.getDate() + 14);
+    AppState.document.dueDate = toLocalYMD(d);
+  }
+  if (!AppState.document.number) {
+    generateDocumentNumber();
+  }
+  if (AppState.lineItems.length === 0) {
+    AppState.lineItems.push({ description: '', quantity: 1, unitPrice: 0 });
+  }
+  addEventListeners();
+  render();
+}
+
+document.addEventListener('DOMContentLoaded', initApp);
+</script>
 </body>
 </html>
+
